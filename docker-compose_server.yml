@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  ollama-server:
+    image: ollama/ollama:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ollama-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app
+      #- ./backend_log_config.ini:/app/backend_log_config.ini
+      - ./rag_data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]  # 有 GPU 加这行，无则删除
+    restart: unless-stopped
+    command: /bin/bash -c "poetry install --no-root --no-interaction --no-ansi && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - server-networks
+networks:
+  server-networks:
+    external: true

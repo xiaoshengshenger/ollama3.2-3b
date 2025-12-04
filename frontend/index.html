@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrivateGPT - 卡通 AI 知识库</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<script>
+    // Tailwind 配置（卡通可爱色彩体系）
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                colors: {
+                    // 马卡龙可爱配色
+                    primary: '#FF6B8B', // 蜜桃粉（主色）
+                    secondary: '#82C3EC', // 天空蓝（辅助色）
+                    accent: '#FFD166', // 奶油黄（强调色）
+                    mint: '#93E9BE', // 薄荷绿（点缀色）
+                    dark: '#F9F7F7', // 浅灰白（深色模式底）
+                    darker: '#FFFFFF', // 纯白（深色模式分层）
+                    neutral: '#F0EEF8', // 淡紫灰（组件背景）
+                    'neutral-light': '#E8E5F8', // 浅紫灰（hover状态）
+                    'text-primary': '#4A4A68', // 深紫灰（主文本）
+                    'text-secondary': '#9492A6', // 浅紫灰（次文本）
+                    // Dark 模式（柔和暗色调）
+                    'dark-bg': '#2D2B40',
+                    'dark-neutral': '#3D3B56',
+                    'dark-text-primary': '#F9F7F7',
+                    'dark-text-secondary': '#C0BED9',
+                },
+                fontFamily: {
+                    sans: ['Comic Neue', 'system-ui', 'sans-serif'], // 卡通字体
+                },
+                boxShadow: {
+                    'cute': '0 4px 12px rgba(255, 107, 139, 0.15)', // 柔和可爱阴影
+                    'cute-hover': '0 6px 18px rgba(255, 107, 139, 0.25)',
+                    'float': '0 8px 20px rgba(130, 195, 236, 0.2)', // 悬浮阴影
+                },
+                animation: {
+                    'bounce-slow': 'bounce 3s infinite', // 慢速弹跳
+                    'wiggle': 'wiggle 1s ease-in-out infinite', // 摇摆动画
+                    'float': 'float 3s ease-in-out infinite', // 漂浮动画
+                },
+                keyframes: {
+                    wiggle: {
+                        '0%, 100%': { transform: 'rotate(-2deg)' },
+                        '50%': { transform: 'rotate(2deg)' },
+                    },
+                    float: {
+                        '0%, 100%': { transform: 'translateY(0)' },
+                        '50%': { transform: 'translateY(-8px)' },
+                    }
+                },
+                borderRadius: {
+                    'xl': '1rem',
+                    '2xl': '1.5rem',
+                    '3xl': '2rem',
+                    'pill': '9999px', // 胶囊圆角
+                }
+            }
+        }
+    }
+</script>
+<style type="text/tailwindcss">
+    @layer utilities {
+        .content-auto {
+            content-visibility: auto;
+        }
+        .scrollbar-hide {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        /* 卡通聊天气泡 */
+        .chat-bubble-user {
+            @apply bg-gradient-to-r from-primary/90 to-primary text-white rounded-2xl rounded-tr-none p-4 max-w-[75%] ml-auto shadow-cute transition-all duration-300 hover:shadow-cute-hover relative overflow-hidden;
+        }
+        .chat-bubble-user::before {
+            content: '';
+            @apply absolute -bottom-2 -right-2 w-8 h-8 bg-primary rounded-full opacity-50;
+        }
+        .chat-bubble-ai {
+            @apply bg-neutral border border-secondary/30 text-text-primary rounded-2xl rounded-tl-none p-4 max-w-[75%] mr-auto shadow-cute transition-all duration-300 hover:shadow-cute-hover relative overflow-hidden;
+        }
+        .chat-bubble-ai::before {
+            content: '';
+            @apply absolute -bottom-2 -left-2 w-8 h-8 bg-secondary rounded-full opacity-30;
+        }
+        /* 卡通按钮 */
+        .btn-primary {
+            @apply bg-gradient-to-r from-primary to-secondary text-white font-medium py-2.5 px-5 rounded-pill transition-all duration-300 flex items-center gap-2 shadow-cute hover:shadow-cute-hover hover:scale-105 relative overflow-hidden;
+        }
+        .btn-primary::after {
+            content: '';
+            @apply absolute inset-0 bg-white/10 opacity-0 transition-opacity duration-300;
+        }
+        .btn-primary:hover::after {
+            @apply opacity-100;
+        }
+        .btn-secondary {
+            @apply bg-white border border-primary/20 text-text-primary font-medium py-2.5 px-5 rounded-pill transition-all duration-300 flex items-center gap-2 hover:bg-neutral-light hover:shadow-cute relative overflow-hidden;
+        }
+        .btn-secondary::before {
+            content: '';
+            @apply absolute top-0 left-0 w-1.5 h-full bg-accent rounded-l-full;
+        }
+        /* 卡通卡片 */
+        .card {
+            @apply bg-white rounded-2xl p-4 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-cute hover:shadow-cute-hover hover:scale-[1.02] relative overflow-hidden;
+        }
+        .card::after {
+            content: '';
+            @apply absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 transition-opacity duration-300;
+        }
+        .card:hover::after {
+            @apply opacity-100;
+        }
+        /* 卡通输入框 */
+        .input-field {
+            @apply w-full bg-white border border-primary/20 rounded-2xl p-4 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300 text-text-primary relative shadow-sm;
+        }
+        /* 进度条样式 */
+        .progress-bar {
+            @apply w-full h-2 bg-neutral rounded-full overflow-hidden mt-2;
+        }
+        .progress-fill {
+            @apply h-full bg-gradient-to-r from-accent to-primary rounded-full transition-all duration-300;
+        }
+        /* Dark 模式适配 */
+        .dark {
+            @apply bg-dark-bg text-dark-text-primary;
+        }
+        .dark .chat-bubble-ai {
+            @apply bg-dark-neutral text-dark-text-primary border-secondary/40;
+        }
+        .dark .chat-bubble-ai::before {
+            @apply bg-secondary/40;
+        }
+        .dark .btn-secondary {
+            @apply bg-dark-neutral text-dark-text-primary border-primary/30 hover:bg-dark-neutral/80;
+        }
+        .dark .card {
+            @apply bg-dark-neutral text-dark-text-primary border-primary/30;
+        }
+        .dark .input-field {
+            @apply bg-dark-neutral text-dark-text-primary border-primary/30 focus:border-primary;
+        }
+        .dark header, .dark footer {
+            @apply bg-dark-neutral border-primary/20;
+        }
+        .dark .text-text-secondary {
+            @apply text-dark-text-secondary;
+        }
+        .dark .progress-bar {
+            @apply bg-dark-neutral/50;
+        }
+        /* 卡通装饰元素 */
+        .cute-dot {
+            @apply w-2 h-2 rounded-full bg-accent inline-block;
+        }
+        .cute-corner {
+            @apply absolute top-0 right-0 w-12 h-12;
+        }
+        .cute-corner::before {
+            content: '';
+            @apply absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-accent rounded-tr-2xl;
+        }
+    }
+</style>
+<!-- 引入卡通字体 -->
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-darker text-text-primary font-sans h-screen flex flex-col overflow-hidden">
+<!-- 背景可爱装饰 -->
+<div class="fixed inset-0 z-0 opacity-5 pointer-events-none">
+    <div class="absolute top-10 left-10 w-20 h-20 rounded-full bg-accent/20 animate-float"></div>
+    <div class="absolute bottom-20 right-10 w-16 h-16 rounded-full bg-primary/20 animate-float" style="animation-delay: 1s;"></div>
+    <div class="absolute top-1/2 left-1/4 w-12 h-12 rounded-full bg-secondary/20 animate-float" style="animation-delay: 2s;"></div>
+</div>
+
+<!-- 顶部导航栏（卡通可爱风格） -->
+<header class="border-b border-primary/10 bg-white/90 backdrop-blur-md py-4 px-5 flex items-center justify-between sticky top-0 z-50 relative overflow-hidden">
+    <div class="flex items-center gap-3 z-10">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center animate-wiggle">
+            <i class="fa fa-robot text-white text-lg"></i>
+        </div>
+        <h1 class="text-xl font-bold text-text-primary">
+            <span class="text-primary">Private</span>
+            <span class="text-secondary">GPT</span>
+        </h1>
+    </div>
+    <div class="flex items-center gap-3 z-10">
+        <button id="modelBtn" class="btn-secondary text-sm px-4 py-2">
+            <span class="font-bold text-xs">🦙 llama3.1</span>
+        </button>
+        <button id="uploadBtn" class="btn-secondary text-sm px-4 py-2">
+            <i class="fa fa-cloud-upload text-xs text-accent"></i>
+            <span class="font-bold text-xs">上传</span>
+        </button>
+        <button id="themeBtn" class="btn-secondary w-10 h-10 p-0 flex items-center justify-center rounded-full">
+            <i class="fa fa-moon-o text-sm text-primary"></i>
+        </button>
+    </div>
+    <!-- 可爱角落装饰 -->
+    <div class="cute-corner"></div>
+</header>
+
+<!-- 主内容区 -->
+<main class="flex-1 flex overflow-hidden relative z-10">
+    <!-- 左侧侧边栏 -->
+    <aside class="w-60 border-r border-primary/10 bg-white/50 p-4 hidden md:block overflow-y-auto scrollbar-hide">
+        <div class="mb-8">
+            <h2 class="text-xs font-bold text-text-secondary uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="cute-dot"></span>
+                <span>我的聊天</span>
+            </h2>
+            <button class="w-full btn-secondary text-left mb-4 text-sm">
+                <i class="fa fa-plus-circle text-xs mr-2 text-accent"></i>
+                <span class="font-bold">新对话 ✨</span>
+            </button>
+            <div class="space-y-3">
+                <div class="card">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa fa-file-text-o text-primary text-lg"></i>
+                        <p class="text-sm font-bold truncate">技术文档总结</p>
+                    </div>
+                    <p class="text-xs text-text-secondary mt-1 flex items-center gap-1">
+                        <i class="fa fa-clock-o text-accent text-[10px]"></i>
+                        <span>今天 14:30</span>
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa fa-code text-secondary text-lg"></i>
+                        <p class="text-sm font-bold truncate">Python 编程问题</p>
+                    </div>
+                    <p class="text-xs text-text-secondary mt-1 flex items-center gap-1">
+                        <i class="fa fa-clock-o text-accent text-[10px]"></i>
+                        <span>今天 10:15</span>
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa fa-search text-accent text-lg"></i>
+                        <p class="text-sm font-bold truncate">知识库查询测试</p>
+                    </div>
+                    <p class="text-xs text-text-secondary mt-1 flex items-center gap-1">
+                        <i class="fa fa-clock-o text-accent text-[10px]"></i>
+                        <span>昨天 16:45</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <h2 class="text-xs font-bold text-text-secondary uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="cute-dot"></span>
+                <span>我的知识库</span>
+            </h2>
+            <div id="knowledgeBaseList" class="space-y-3">
+                <!-- 动态渲染知识库文件 -->
+                <div class="card flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-file-pdf-o text-primary text-sm"></i>
+                        </div>
+                        <span class="text-sm font-bold truncate">技术文档.pdf</span>
+                    </div>
+                    <button class="text-text-secondary hover:text-primary transition-colors p-1 rounded-full hover:bg-primary/10 delete-file-btn" data-doc-id="c202d5e6-7b69-4869-81cc-dd574ee8ee11">
+                        <i class="fa fa-trash-o text-xs"></i>
+                    </button>
+                </div>
+                <div class="card flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center">
+                            <i class="fa fa-file-word-o text-secondary text-sm"></i>
+                        </div>
+                        <span class="text-sm font-bold truncate">产品说明书.docx</span>
+                    </div>
+                    <button class="text-text-secondary hover:text-primary transition-colors p-1 rounded-full hover:bg-primary/10 delete-file-btn" data-doc-id="d303e6f7-8c70-5970-92dd-ee685ff9ff22">
+                        <i class="fa fa-trash-o text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 中间聊天区 -->
+    <section class="flex-1 flex flex-col overflow-hidden">
+        <div id="chatContainer" class="flex-1 p-5 md:p-8 overflow-y-auto scrollbar-hide space-y-6 relative">
+            <!-- 欢迎消息 -->
+            <div class="chat-bubble-ai">
+                <div class="flex items-start gap-4">
+                    <div class="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center animate-bounce-slow">
+                        <i class="fa fa-robot text-secondary text-sm"></i>
+                    </div>
+                    <div class="space-y-2">
+                        <p class="text-sm font-bold">你好呀！😊 我是 PrivateGPT</p>
+                        <p class="text-sm text-text-secondary">我是基于本地大模型的智能助手，可以回答你的问题，也能帮你查询上传的知识库文件哦～</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 示例对话 -->
+            <div class="chat-bubble-user">
+                <div class="flex items-start gap-4">
+                    <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <i class="fa fa-user text-primary text-sm"></i>
+                    </div>
+                    <p class="text-sm font-bold">什么是 PrivateGPT？</p>
+                </div>
+            </div>
+            <div class="chat-bubble-ai">
+                <div class="flex items-start gap-4">
+                    <div class="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center animate-bounce-slow">
+                        <i class="fa fa-robot text-secondary text-sm"></i>
+                    </div>
+                    <p class="text-sm">PrivateGPT 是开源的本地大模型问答系统 🚀，支持离线部署和知识库私有化管理，无需联网就能保护你的数据隐私，还能通过 GPU 加速让回答更快哦～</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="border-t border-primary/10 bg-white/90 p-4 md:p-5 relative">
+            <form id="chatForm" class="flex flex-col gap-4 relative z-10">
+                <div class="relative">
+                    <textarea 
+                        id="userInput"
+                        class="input-field resize-none min-h-[80px] pr-12"
+                        placeholder="想问什么呀？😜"
+                    ></textarea>
+                    <button type="button" class="absolute right-4 bottom-4 text-text-secondary hover:text-primary transition-colors p-1 rounded-full hover:bg-primary/10">
+                        <i class="fa fa-paperclip text-sm text-accent"></i>
+                    </button>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="btn-primary font-bold">
+                        <i class="fa fa-paper-plane text-sm"></i>
+                        <span>发送消息 💬</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- 右侧配置面板 -->
+    <aside id="configPanel" class="w-72 border-l border-primary/10 bg-white/50 p-5 hidden lg:block overflow-y-auto scrollbar-hide">
+        <div class="space-y-8">
+            <div class="card">
+                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
+                    <i class="fa fa-cog text-primary"></i>
+                    <span>模型配置 🛠️</span>
+                </h2>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary mb-2">选择可爱模型</label>
+                        <select id="modelSelect" class="input-field text-sm p-3">
+                            <option selected>llama3.2:3b</option>
+                            <option>🐱 qwen:7b-chat（CPU）</option>
+                            <option>🐶 mistral:7b-instruct（GPU）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary mb-2">创意温度 🌡️</label>
+                        <input type="range" min="0" max="1" step="0.1" value="0.1" class="w-full accent-primary" id="temperatureSlider">
+                        <div class="flex justify-between text-xs text-text-secondary mt-2">
+                            <span class="font-bold">超正经</span>
+                            <span id="temperatureValue" class="text-accent font-bold">0.1</span>
+                            <span class="font-bold">超脑洞</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-text-secondary mb-2">回答长度 📏</label>
+                        <select id="maxTokensSelect" class="input-field text-sm p-3">
+                            <option>256（简短）</option>
+                            <option selected>512（适中）</option>
+                            <option>1024（详细）</option>
+                            <option>2048（超长）</option>
+                        </select>
+                    </div>
+                    <button class="w-full btn-primary text-sm font-bold">
+                        <i class="fa fa-save text-xs"></i>
+                        <span>保存配置 💾</span>
+                    </button>
+                </div>
+            </div>
+            <div class="card">
+                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
+                    <i class="fa fa-comment text-secondary"></i>
+                    <span>系统提示词 📝</span>
+                </h2>
+                <textarea id="systemPrompt" class="input-field h-32 text-sm" placeholder="输入系统提示词...">你是一个可爱、友好、充满童趣的AI助手，回答要轻松有趣，多用emoji和可爱的语气，始终保持耐心和热情。</textarea>
+                <button class="w-full btn-primary text-sm font-bold mt-4">
+                    <i class="fa fa-save text-xs"></i>
+                    <span>更新提示词 ✨</span>
+                </button>
+            </div>
+            <div class="card">
+                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
+                    <i class="fa fa-heart text-accent"></i>
+                    <span>服务状态 📊</span>
+                </h2>
+                <div class="space-y-4 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-text-secondary">模型状态：</span>
+                        <span class="text-green-500 flex items-center gap-1 font-bold">
+                            <i class="fa fa-check-circle"></i> 快乐运行中
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-text-secondary">GPU 加速：</span>
+                        <span id="gpuStatus" class="text-green-500 flex items-center gap-1 font-bold">
+                            <i class="fa fa-check-circle"></i> 已启用 🚀
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-text-secondary">显存占用：</span>
+                        <span class="font-bold text-accent">2.8 GB / 8 GB</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-text-secondary">响应速度：</span>
+                        <span class="font-bold text-primary">超快 ⚡</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</main>
+
+<!-- 底部状态栏 -->
+<footer class="border-t border-primary/10 bg-white/90 py-3 px-5 text-xs text-text-secondary flex justify-between items-center relative z-50">
+    <div class="font-bold">PrivateGPT · 本地部署 · 数据私有化 🛡️</div>
+    <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1 font-bold"><i class="fa fa-gpu text-accent"></i> RTX 3060</span>
+        <span class="flex items-center gap-1 font-bold"><i class="fa fa-clock-o text-accent"></i> 响应时间：0.8s</span>
+    </div>
+</footer>
+
+<!-- 上传文件模态框 -->
+<div id="uploadModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-float relative overflow-hidden">
+        <!-- 模态框可爱装饰 -->
+        <div class="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-primary to-secondary"></div>
+        
+        <div class="flex justify-between items-center relative z-10">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa fa-cloud-upload text-primary"></i>
+                <span>上传知识库文件 📤</span>
+            </h3>
+            <button id="closeModalBtn" class="text-text-secondary hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10">
+                <i class="fa fa-times text-accent"></i>
+            </button>
+        </div>
+        
+        <div class="border-2 border-dashed border-primary/30 rounded-2xl p-8 text-center" id="dropArea">
+            <div class="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mx-auto mb-4 animate-float">
+                <i class="fa fa-file-text-o text-secondary text-3xl"></i>
+            </div>
+            <p class="text-sm font-bold mb-2">拖拽文件到此处，或点击选择文件 📂</p>
+            <p class="text-xs text-text-secondary">支持 PDF、Word、TXT、Markdown（单个文件最大 100MB）</p>
+            <input type="file" id="fileInput" class="hidden" multiple accept=".pdf,.docx,.doc,.txt,.md">
+            <button id="selectFileBtn" class="btn-primary mt-6 text-sm font-bold">
+                <i class="fa fa-file text-xs"></i>
+                <span>选择文件</span>
+            </button>
+        </div>
+        
+        <div id="fileList" class="space-y-3 hidden relative z-10">
+            <h4 class="text-xs font-bold text-text-secondary flex items-center gap-2">
+                <span class="cute-dot"></span>
+                <span>待上传文件</span>
+            </h4>
+            <div id="selectedFilesContainer" class="space-y-2">
+                <!-- 动态渲染选中的文件 -->
+            </div>
+            <!-- 上传进度条 -->
+            <div id="uploadProgressContainer" class="hidden">
+                <p class="text-xs text-text-secondary font-bold mt-2">上传进度 📈</p>
+                <div class="progress-bar">
+                    <div id="uploadProgressBar" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <p id="uploadProgressText" class="text-xs text-text-secondary mt-1 text-center">0%</p>
+            </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 relative z-10">
+            <button id="cancelUploadBtn" class="btn-secondary text-sm font-bold">取消 ❌</button>
+            <button id="confirmUploadBtn" class="btn-primary text-sm font-bold">
+                <i class="fa fa-upload text-xs"></i>
+                <span>开始上传 🚀</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 全局变量
+    let selectedDocIds = []; // 移除硬编码的无效 ID
+    let currentUploadFile = null;
+
+    // DOM 元素获取
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+    const chatContainer = document.getElementById('chatContainer');
+    const modelBtn = document.getElementById('modelBtn');
+    const configPanel = document.getElementById('configPanel');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadModal = document.getElementById('uploadModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelUploadBtn = document.getElementById('cancelUploadBtn');
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const fileInput = document.getElementById('fileInput');
+    const dropArea = document.getElementById('dropArea');
+    const fileList = document.getElementById('fileList');
+    const selectedFilesContainer = document.getElementById('selectedFilesContainer');
+    const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+    const uploadProgressBar = document.getElementById('uploadProgressBar');
+    const uploadProgressText = document.getElementById('uploadProgressText');
+    const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+    const temperatureSlider = document.getElementById('temperatureSlider');
+    const temperatureValue = document.getElementById('temperatureValue');
+    const themeBtn = document.getElementById('themeBtn');
+    const knowledgeBaseList = document.getElementById('knowledgeBaseList');
+    
+    // 新增：模型配置相关元素
+    const modelSelect = document.getElementById('modelSelect');
+    const maxTokensSelect = document.getElementById('maxTokensSelect');
+    const systemPrompt = document.getElementById('systemPrompt');
+    const gpuStatus = document.getElementById('gpuStatus');
+
+    // 温度滑块实时更新
+    temperatureSlider.addEventListener('input', () => {
+        temperatureValue.textContent = temperatureSlider.value;
+    });
+
+    // 模型按钮：切换配置面板显示
+    modelBtn.addEventListener('click', () => {
+        configPanel.classList.toggle('hidden');
+    });
+
+    // 上传按钮：打开模态框
+    uploadBtn.addEventListener('click', () => {
+        uploadModal.classList.remove('hidden');
+        // 重置上传状态
+        resetUploadState();
+    });
+
+    // 关闭模态框
+    [closeModalBtn, cancelUploadBtn].forEach(btn => {
+        btn.addEventListener('click', () => {
+            uploadModal.classList.add('hidden');
+            resetUploadState();
+        });
+    });
+
+    // 重置上传状态
+    function resetUploadState() {
+        fileList.classList.add('hidden');
+        uploadProgressContainer.classList.add('hidden');
+        uploadProgressBar.style.width = '0%';
+        uploadProgressText.textContent = '0%';
+        selectedFilesContainer.innerHTML = '';
+        fileInput.value = '';
+        currentUploadFile = null;
+    }
+
+    // 选择文件按钮
+    selectFileBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // 文件选择事件
+    fileInput.addEventListener('change', (e) => {
+        handleFileSelection(e.target.files);
+    });
+
+    // 拖拽上传
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        dropArea.classList.add('border-primary');
+        dropArea.classList.add('bg-primary/5');
+    }
+
+    function unhighlight() {
+        dropArea.classList.remove('border-primary');
+        dropArea.classList.remove('bg-primary/5');
+    }
+
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            handleFileSelection(files);
+        }
+    }
+
+    // 处理文件选择
+    function handleFileSelection(files) {
+        if (files.length === 0) return;
+        
+        fileList.classList.remove('hidden');
+        selectedFilesContainer.innerHTML = '';
+        
+        // 只处理第一个文件（可扩展为多文件）
+        const file = files[0];
+        currentUploadFile = file;
+        
+        // 格式化文件大小
+        const fileSize = formatFileSize(file.size);
+        
+        // 创建文件项
+        const fileItem = document.createElement('div');
+        fileItem.className = 'flex items-center justify-between p-3 bg-neutral rounded-2xl';
+        fileItem.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <i class="fa ${getFileIcon(file.name)} text-primary text-xs"></i>
+                </div>
+                <span class="text-sm font-bold truncate">${file.name}</span>
+            </div>
+            <span class="text-xs text-text-secondary font-bold">${fileSize}</span>
+        `;
+        
+        selectedFilesContainer.appendChild(fileItem);
+    }
+
+    // 获取文件图标
+    function getFileIcon(fileName) {
+        const ext = fileName.split('.').pop().toLowerCase();
+        switch (ext) {
+            case 'pdf': return 'fa-file-pdf-o';
+            case 'docx':
+            case 'doc': return 'fa-file-word-o';
+            case 'txt': return 'fa-file-text-o';
+            case 'md': return 'fa-file-code-o';
+            default: return 'fa-file-o';
+        }
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // 上传确认按钮点击事件
+    function fetchWithProgress(url, options, onProgress) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open(options.method || 'GET', url);
+            
+            // 设置请求头（兼容 FormData，不手动设置 Content-Type）
+            if (options.headers) {
+                Object.keys(options.headers).forEach(key => {
+                    xhr.setRequestHeader(key, options.headers[key]);
+                });
+            }
+            
+            // 修复：进度回调绑定（正确接收 onProgress 参数）
+            if (onProgress && xhr.upload) {
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        onProgress(Math.round(percent));
+                    }
+                });
+            }
+            
+            // 完成回调：修复 Response 构造，兼容 JSON 解析
+            xhr.addEventListener('load', () => {
+                const headers = new Headers();
+                const headerStr = xhr.getAllResponseHeaders();
+                if (headerStr) {
+                    headerStr.split('\n').forEach(line => {
+                        const [key, ...values] = line.trim().split(':');
+                        if (key) headers.append(key, values.join(':').trim());
+                    });
+                }
+
+                const response = new Response(xhr.responseText, {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    headers: headers
+                });
+                
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(response);
+                } else {
+                    // 提供更详细的错误信息
+                    response.text().then(errorText => {
+                        reject(new Error(`请求失败 (${xhr.status}): ${errorText || xhr.statusText}`));
+                    }).catch(() => {
+                        reject(new Error(`请求失败: ${xhr.status} ${xhr.statusText}`));
+                    });
+                }
+            });
+            
+            xhr.addEventListener('error', () => reject(new Error('Network error occurred')));
+            xhr.addEventListener('abort', () => reject(new Error('Request aborted')));
+            xhr.send(options.body);
+        });
+    }
+
+    // 修复：上传确认按钮逻辑（参数传递 + doc_id 解析）
+    confirmUploadBtn.addEventListener('click', async () => {
+        if (!currentUploadFile) {
+            alert('请先选择要上传的文件哦 😜');
+            return;
+        }
+
+        confirmUploadBtn.disabled = true;
+        confirmUploadBtn.innerHTML = '<i class="fa fa-spinner fa-spin text-xs"></i><span>上传中...</span>';
+        uploadProgressContainer.classList.remove('hidden');
+        
+        try {
+            const formData = new FormData();
+            formData.append("file", currentUploadFile);
+            console.log("1111", formData);
+
+            // 使用正确的进度回调传递方式
+            const response = await fetchWithProgress(
+                "http://localhost:8001/v1/ingest/file",
+                { method: "POST", body: formData },
+                updateUploadProgress
+            );
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`上传失败：${response.status} - ${errorText}`);
+            }
+            
+            // 正确解析JSON响应
+            const result = await response.json();
+            const docItem = result.data?.[0];
+            if (!docItem || !docItem.doc_id) {
+                throw new Error("未获取到有效文档ID");
+            }
+            const docId = docItem.doc_id;
+            console.log("文件摄入成功，文档ID：", docId);
+            
+            updateUploadProgress(100);
+            if (!selectedDocIds.includes(docId)) {
+                selectedDocIds.push(docId);
+            }
+            // 修复变量名错误
+            addFileToKnowledgeBase(currentUploadFile.name, docId);
+            showSuccessMessage(`文件 "${currentUploadFile.name}" 上传成功啦 ✨`);
+            
+            setTimeout(() => {
+                uploadModal.classList.add('hidden');
+                resetUploadState();
+            }, 1500);
+
+        } catch (error) {
+            console.error('文件上传错误：', error);
+            alert(`哎呀，上传失败了 😥：${error.message}`);
+            updateUploadProgress(0);
+        } finally {
+            confirmUploadBtn.disabled = false;
+            confirmUploadBtn.innerHTML = '<i class="fa fa-upload text-xs"></i><span>开始上传 🚀</span>';
+        }
+    });
+
+    // 更新上传进度
+    function updateUploadProgress(percent) {
+        uploadProgressBar.style.width = `${percent}%`;
+        uploadProgressText.textContent = `${percent}%`;
+    }
+
+    // 添加文件到知识库列表
+    function addFileToKnowledgeBase(fileName, docId) {
+        const fileIcon = getFileIcon(fileName);
+        const fileColor = fileIcon === 'fa-file-pdf-o' ? 'primary' : 'secondary';
+        
+        const fileItem = document.createElement('div');
+        fileItem.className = 'card flex items-center justify-between';
+        fileItem.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-${fileColor}/10 flex items-center justify-center">
+                    <i class="fa ${fileIcon} text-${fileColor} text-sm"></i>
+                </div>
+                <span class="text-sm font-bold truncate">${fileName}</span>
+            </div>
+            <button class="text-text-secondary hover:text-primary transition-colors p-1 rounded-full hover:bg-primary/10 delete-file-btn" data-doc-id="${docId}">
+                <i class="fa fa-trash-o text-xs"></i>
+            </button>
+        `;
+        
+        knowledgeBaseList.appendChild(fileItem);
+        
+        // 添加删除事件监听
+        fileItem.querySelector('.delete-file-btn').addEventListener('click', function() {
+            deleteFileFromKnowledgeBase(this, docId);
+        });
+    }
+
+    // 从知识库删除文件
+    function deleteFileFromKnowledgeBase(button, docId) {
+        if (confirm(`确定要删除这个文件吗？😢`)) {
+            // 调用后端删除接口
+            fetch(`http://localhost:8001/v1/ingest/${docId}`, {
+                method: "DELETE",
+                // 可以添加适当的headers，但DELETE请求通常不需要Content-Type
+            }).then(res => {
+                if (!res.ok) throw new Error("删除失败");
+                // 前端DOM操作
+                const fileItem = button.closest('.card');
+                fileItem.classList.add('opacity-0');
+                setTimeout(() => fileItem.remove(), 300);
+                selectedDocIds = selectedDocIds.filter(id => id !== docId);
+                showSuccessMessage('文件已成功删除 🗑️');
+            }).catch(err => {
+                console.error("删除文件失败：", err);
+                alert("删除失败：" + err.message);
+            });
+        }
+    }
+
+    // 显示成功消息到聊天框
+    function showSuccessMessage(message) {
+        const successMessageHtml = `
+            <div class="chat-bubble-ai">
+                <div class="flex items-start gap-4">
+                    <div class="w-8 h-8 rounded-full bg-mint/20 flex items-center justify-center animate-bounce-slow">
+                        <i class="fa fa-check text-mint text-sm"></i>
+                    </div>
+                    <p class="text-sm font-bold text-mint">${message}</p>
+                </div>
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', successMessageHtml);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // 核心修改：API 调用逻辑
+    function getApiConfig() {
+        const selectedModel = modelSelect.value;
+        console.log("44444444" , selectedModel, modelSelect.value)
+        return {
+            url: 'http://localhost:5000/api/chat/completions',
+            model: selectedModel,
+            temperature: parseFloat(temperatureSlider.value),
+            max_tokens: parseInt(maxTokensSelect.value.split('（')[0]),
+            system_prompt: systemPrompt.value.trim()
+        };
+    }
+
+    function renderUserMessage(content) {
+        const userMessageHtml = `
+            <div class="chat-bubble-user">
+                <div class="flex items-start gap-4">
+                    <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <i class="fa fa-user text-primary text-sm"></i>
+                    </div>
+                    <p class="text-sm font-bold">${escapeHtml(content)}</p>
+                </div>
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', userMessageHtml);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function renderAiMessageStream() {
+        const aiMessageDiv = document.createElement('div');
+        aiMessageDiv.className = 'chat-bubble-ai';
+        aiMessageDiv.innerHTML = `
+            <div class="flex items-start gap-4">
+                <div class="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center animate-bounce-slow">
+                    <i class="fa fa-robot text-secondary text-sm"></i>
+                </div>
+                <p class="text-sm ai-content font-bold">正在思考ing... 🤔</p>
+            </div>
+        `;
+        chatContainer.appendChild(aiMessageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        const contentElement = aiMessageDiv.querySelector('.ai-content');
+        return { aiMessageDiv, contentElement };
+    }
+
+    async function callOllamaApi(userContent) {
+        const { url, model, temperature, max_tokens, system_prompt } = getApiConfig();
+        console.log("2222222", model)
+        const { aiMessageDiv, contentElement } = renderAiMessageStream();
+
+        try {
+            const messages = [];
+            if (system_prompt) {
+                messages.push({ role: 'system', content: system_prompt });
+            }
+            messages.push({ role: 'user', content: userContent });
+
+            const requestBody = {
+                model: model,
+                messages: messages,
+                stream: true,
+                use_context: selectedDocIds.length > 0,
+                include_sources: false,
+                ...(selectedDocIds.length > 0 && {
+                    context_filter: { docs_ids: selectedDocIds }
+                })
+            };
+            console.log("111111111111", JSON.stringify(requestBody))
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) throw new Error(`API 响应错误: ${response.status} ${response.statusText}`);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let aiContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n').filter(line => line.trim());
+
+                for (const line of lines) {
+                    try {
+                        let dataStr = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
+                        if (dataStr === '[DONE]') continue;
+                        
+                        const data = JSON.parse(dataStr);
+                        let newContent = '';
+                        
+                        if (data.choices && data.choices.length > 0) {
+                            newContent = data.choices[0].delta?.content || data.choices[0].message?.content || '';
+                        } else if (data.response) {
+                            newContent = data.response;
+                        }
+
+                        if (newContent) {
+                            aiContent += newContent;
+                            if (contentElement && contentElement.parentNode) {
+                                contentElement.textContent = aiContent;
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }
+                        }
+                    } catch (parseError) {
+                        console.warn('解析错误:', parseError, '行内容:', line);
+                    }
+                }
+            }
+
+            if (!aiContent.trim()) {
+                contentElement.textContent = '哎呀，没获取到有效回复呢 😥，请再问一次吧～';
+            }
+
+        } catch (error) {
+            contentElement.innerHTML = `<span class="text-primary font-bold">❌ 调用失败：${escapeHtml(error.message)}</span>`;
+            console.error('Ollama API 调用错误：', error);
+        }
+    }
+
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        userInput.value = '';
+        renderUserMessage(message);
+        await callOllamaApi(message);
+    });
+
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // 主题切换
+    themeBtn.addEventListener('click', () => {
+        const icon = themeBtn.querySelector('i');
+        if (icon.classList.contains('fa-moon-o')) {
+            icon.classList.replace('fa-moon-o', 'fa-sun-o');
+            document.body.classList.add('dark');
+            document.body.classList.remove('bg-darker');
+            document.body.classList.add('bg-dark-bg');
+        } else {
+            icon.classList.replace('fa-sun-o', 'fa-moon-o');
+            document.body.classList.remove('dark');
+            document.body.classList.add('bg-darker');
+            document.body.classList.remove('bg-dark-bg');
+        }
+    });
+
+    // 初始化：为现有删除按钮添加事件监听
+    document.querySelectorAll('.delete-file-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            deleteFileFromKnowledgeBase(this, this.dataset.docId);
+        });
+    });
+
+    async function initKnowledgeBase() {
+        try {
+            const response = await fetch("http://localhost:8001/v1/ingest/list");
+            if (!response.ok) throw new Error("获取文件列表失败");
+            console.error("初始化知识库数据：", response);
+            const result = await response.json();
+           
+            if (result.data && Array.isArray(result.data)) {
+                // 清空现有示例数据
+                knowledgeBaseList.innerHTML = '';
+                
+                // 添加所有已上传的文件
+                result.data.forEach(doc => {
+                    if (doc.doc_id && doc.doc_metadata?.file_name) {
+                        addFileToKnowledgeBase(doc.doc_metadata.file_name, doc.doc_id);
+                        selectedDocIds.push(doc.doc_id);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("初始化知识库失败：", error);
+        }
+    }
+
+    window.addEventListener('load', initKnowledgeBase);
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+# Python 基础忽略
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Poetry 虚拟环境（你的项目用 Poetry，重点忽略）
+.venv/
+venv/
+ENV/
+# Poetry 锁文件（可选：若团队协作，建议提交 poetry.lock 确保依赖一致）
+# poetry.lock
+
+# 项目相关临时文件
+temp_docs/  # 文档上传的临时目录（之前代码中创建的）
+model_cache/  # 自定义的模型缓存目录（若使用）
+*.log
+*.tmp
+*.swp
+.DS_Store  # Mac 系统垃圾文件
+Thumbs.db  # Windows 系统垃圾文件
+
+# .env 配置文件（敏感信息，必须忽略！）
+.env
+.env.local
+.env.*.local
+
+# HuggingFace 模型缓存（默认路径，体积大，无需提交）
+~/.cache/huggingface/
+~/.cache/torch/

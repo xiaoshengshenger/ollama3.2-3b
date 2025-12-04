@@ -1,0 +1,36 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = ""
+authors = [
+    { name = "tangyangsheng", email = "29817019911@qq.com" }
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+license = "MIT"
+keywords = ["fastapi", "llama-index", "ollama", "embedding"]
+dynamic = ["dependencies"]  # 声明依赖由 Poetry 管理，避免之前的格式警告
+
+# 仅保留 Poetry 必要配置（无重复字段）
+[tool.poetry]
+packages = [{ include = "app", from = "src" }]  # 仅保留源码目录配置（核心必要）
+include = ["src/"] 
+
+# Poetry 原生依赖格式（无重复，解析无压力）
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+uvicorn = "^0.38.0"
+fastapi = "^0.123.8"
+python-multipart = "^0.0.20"
+pydantic-settings = "^2.12.0"
+llama-index-core = ">=0.10.86"
+llama-index-llms-ollama = ">=0.1.11"
+llama-index-embeddings-huggingface = ">=0.1.7"
+llama-index-readers-file = ">=0.1.28"
+transformers = ">=4.41.0"
+torch = ">=2.3.0"
+sentence-transformers = ">=2.7.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
