@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # LLM 模型：默认 llama3.2:3b（可通过 .env 覆盖，若需要）
     OLLAMA_MODEL: Literal["llama3.2:3b", "llama3.2:7b", "llama3.2:13b"] = "llama3.2:3b"
 
+    EMBEDDING_MODE: str
+
+    HUGGINGFACE_EMBEDDING_MODEL: str
+
+    LLM_MODE: str
+
     class Config:
         env_file = ".env"  
         env_file_encoding = "utf-8" 

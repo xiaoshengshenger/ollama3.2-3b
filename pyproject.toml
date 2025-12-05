@@ -31,6 +31,11 @@ transformers = ">=4.41.0"
 torch = ">=2.3.0"
 sentence-transformers = ">=2.7.0"
 
+injector = "^0.23.0"
+
+python-dotenv = ">=0.21.0"
+pyyaml = "^6.0.2"
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
