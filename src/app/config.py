@@ -13,15 +13,16 @@ class Settings(BaseSettings):
     # LLM 模型：默认 llama3.2:3b（可通过 .env 覆盖，若需要）
     OLLAMA_MODEL: Literal["llama3.2:3b", "llama3.2:7b", "llama3.2:13b"] = "llama3.2:3b"
 
-    EMBEDDING_MODE: str
+    EMBEDDING_MODE: Literal["huggingface", "openai", "ollama"] = "huggingface"
 
-    HUGGINGFACE_EMBEDDING_MODEL: str
+    HUGGINGFACE_EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
     LLM_MODE: str
 
     class Config:
         env_file = ".env"  
         env_file_encoding = "utf-8" 
+        case_sensitive = True
 
 
 settings = Settings()

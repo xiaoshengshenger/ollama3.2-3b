@@ -3,6 +3,7 @@ from app.api.llm_api.llm_model import ChatBody
 from starlette.responses import StreamingResponse
 from llama_index.core.llms import ChatMessage, MessageRole
 from app.api.llm_api.chat.chat_server import ChatService
+from app.api.llm_api.llm_model import to_openai_sse_stream
 
 chat_router = APIRouter()
 
@@ -10,7 +11,8 @@ chat_router = APIRouter()
 @chat_router.post(
     "/chat/completions",
     response_model=None,
-    responses={200: {"model": StreamingResponse}},
+    #responses={200: {"model": StreamingResponse}},
+    responses={200: {"description": "成功返回流式对话响应", "content": {"text/event-stream": {}}}},
     tags=["Contextual Completions"],
     openapi_extra={
         "x-fern-streaming": {

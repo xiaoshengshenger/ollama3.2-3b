@@ -1,15 +1,16 @@
-from injector import inject, singleton
+from injector import singleton
 from llama_index.core.llms import LLM
-from app.config import Settings
+from app.api.settings.settings import settings, OllamaSettings
+from collections.abc import Callable
+from typing import Any
 
 @singleton
 class LLMComponent:
     llm: LLM
 
-    @inject
-    def __init__(self, settings: Settings) -> None:
-        llm_mode = settings.LLM_MODE
-        print(f"Initializing the LLM model in mode={llm_mode}")
+    def __init__(self) -> None:
+        llm_mode = settings().llm.mode
+        print(f"LLM model in mode={llm_mode}")
         match llm_mode:
             case "ollama":
                 try:
@@ -19,19 +20,19 @@ class LLMComponent:
                         "Ollama dependencies not found, install with `poetry install --extras llms-ollama`"
                     ) from e
 
-                ollama_settings = settings.ollama
+                ollama_settings = settings().ollama
 
                 settings_kwargs = {
-                    "tfs_z": 0.9,
-                    "num_predict": 512,
-                    "top_k": 40,
-                    "top_p": 0.9,
-                    "repeat_last_n": 64,
-                    "repeat_penalty": 1.1,
+                    "tfs_z": ollama_settings.tfs_z,
+                    "num_predict": ollama_settings.num_predict,
+                    "top_k": ollama_settings.top_k,
+                    "top_p": ollama_settings.top_p,
+                    "repeat_last_n": ollama_settings.repeat_last_n,
+                    "repeat_penalty": ollama_settings.repeat_penalty,
                 }
 
                 # calculate llm model. If not provided tag, it will be use latest
-                llm_model = settings.OLLAMA_MODEL
+                llm_model = ollama_settings.llm_model
                 if ":" not in llm_model:
                     # 条件1：模型名中没有冒号（未指定版本）
                     model_name = llm_model + ":latest"  # 补全为「模型名:latest」
@@ -42,27 +43,27 @@ class LLMComponent:
                 llm = Ollama(
                     model=model_name,
                     base_url=ollama_settings.api_base,
-                    temperature=settings.llm.temperature,
-                    context_window=settings.llm.context_window,
+                    temperature=ollama_settings.temperature,
+                    context_window=ollama_settings.context_window,
                     additional_kwargs=settings_kwargs,
                     request_timeout=ollama_settings.request_timeout,
                 )
                 
 
                 if ollama_settings.autopull_models:
-                    from private_gpt.utils.ollama import check_connection, pull_model
+                    from app.api.utils.pull_ollama_model import check_connection, pull_model
 
                     if not check_connection(llm.client):
                         raise ValueError(
                             f"Failed to connect to Ollama, "
                             f"check if Ollama server is running on {ollama_settings.api_base}"
                         )
-                    logger.info("Initializing9999 the LLM in mode=%s， client=%s", model_name, llm.client)
+                    print(llm.client + "11111111111111111111111")
                     pull_model(llm.client, model_name)
 
                 if (
                     ollama_settings.keep_alive
-                    != ollama_settings.model_fields["keep_alive"].default
+                    != OllamaSettings.model_fields["keep_alive"].default
                 ):
                     # Modify Ollama methods to use the "keep_alive" field.
                     def add_keep_alive(func: Callable[..., Any]) -> Callable[..., Any]:

@@ -35,8 +35,6 @@ coverage.xml
 .venv/
 venv/
 ENV/
-# Poetry 锁文件（可选：若团队协作，建议提交 poetry.lock 确保依赖一致）
-# poetry.lock
 
 # 项目相关临时文件
 temp_docs/  # 文档上传的临时目录（之前代码中创建的）

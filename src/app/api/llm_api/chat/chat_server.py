@@ -1,8 +1,70 @@
-from app.config import Settings
+from app.api.settings.settings import settings, Settings
 from injector import inject, singleton
 from app.api.Embedding.embedding_component import EmbeddingComponent
+from app.api.LLM.llm_component import LLMComponent
+from app.api.LLM.vector_store_component import VectorStoreComponent
+from app.api.LLM.node_store_component import NodeStoreComponent
 
+from llama_index.core.storage import StorageContext
+from llama_index.core.llms import ChatMessage, MessageRole
+from app.api.LLM.context_filter import ContextFilter
 
+from llama_index.core.indices import VectorStoreIndex
+from llama_index.core.storage import StorageContext
+
+from llama_index.core.types import TokenGen
+from pydantic import BaseModel
+from dataclasses import dataclass
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
+
+from llama_index.core.chat_engine.types import (
+    BaseChatEngine,
+)
+from llama_index.core.indices.postprocessor import MetadataReplacementPostProcessor
+from llama_index.core.postprocessor import (
+    SentenceTransformerRerank,
+    SimilarityPostprocessor,
+)
+
+from llama_index.core.chat_engine import ContextChatEngine, SimpleChatEngine
+from app.api.llm_api.chunks.chunks_service import Chunk
+
+@dataclass
+class ChatEngineInput:
+    system_message: ChatMessage | None = None
+    last_message: ChatMessage | None = None
+    chat_history: list[ChatMessage] | None = None
+
+    @classmethod
+    def from_messages(cls, messages: list[ChatMessage]) -> "ChatEngineInput":
+        # Detect if there is a system message, extract the last message and chat history
+        system_message = (
+            messages[0]
+            if len(messages) > 0 and messages[0].role == MessageRole.SYSTEM
+            else None
+        )
+        last_message = (
+            messages[-1]
+            if len(messages) > 0 and messages[-1].role == MessageRole.USER
+            else None
+        )
+        # Remove from messages list the system message and last message,
+        # if they exist. The rest is the chat history.
+        if system_message:
+            messages.pop(0)
+        if last_message:
+            messages.pop(-1)
+        chat_history = messages if len(messages) > 0 else None
+
+        return cls(
+            system_message=system_message,
+            last_message=last_message,
+            chat_history=chat_history,
+        )
+
+class CompletionGen(BaseModel):
+    response: TokenGen
+    sources: list[Chunk] | None = None
 
 @singleton
 class ChatService:
@@ -11,13 +73,12 @@ class ChatService:
     @inject
     def __init__(
         self,
-        settings: Settings,
         llm_component: LLMComponent,
         vector_store_component: VectorStoreComponent,
         embedding_component: EmbeddingComponent,
         node_store_component: NodeStoreComponent,
     ) -> None:
-        self.settings = settings
+        self.settings = settings()
         self.llm_component = llm_component
         self.embedding_component = embedding_component
         self.vector_store_component = vector_store_component
@@ -53,7 +114,7 @@ class ChatService:
             if settings.rag.similarity_value:
                 node_postprocessors.append(
                     SimilarityPostprocessor(
-                        similarity_cutoff=settings.rag.similarity_value
+                        similarity_cutoff=settings.rag.similarity_value,
                     )
                 )
 

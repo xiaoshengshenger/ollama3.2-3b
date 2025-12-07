@@ -19,11 +19,13 @@ include = ["src/"]
 # Poetry 原生依赖格式（无重复，解析无压力）
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
+qdrant-client = "^1.16.1"
+
 uvicorn = "^0.38.0"
 fastapi = "^0.123.8"
 python-multipart = "^0.0.20"
 pydantic-settings = "^2.12.0"
-llama-index-core = ">=0.10.86"
+llama-index-core = ">=0.10.1,<0.10.86"
 llama-index-llms-ollama = ">=0.1.11"
 llama-index-embeddings-huggingface = ">=0.1.7"
 llama-index-readers-file = ">=0.1.28"
@@ -36,6 +38,19 @@ injector = "^0.23.0"
 python-dotenv = ">=0.21.0"
 pyyaml = "^6.0.2"
 
+#用于拉取ollama模型
+retry-async = "^0.1.4"
+
+llama-index-vector-stores-qdrant = {version ="*", optional = true}
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "tsinghua"  # 镜像源名称
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"  # 清华源地址
+
+[[tool.poetry.source]]
+name = "aliyun"  # 阿里云源（备用，防止清华源不可用）
+url = "https://mirrors.aliyun.com/pypi/simple/"
