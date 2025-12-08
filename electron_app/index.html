@@ -859,7 +859,7 @@
         const selectedModel = modelSelect.value;
         console.log("44444444" , selectedModel, modelSelect.value)
         return {
-            url: 'http://localhost:5000/api/chat/completions',
+            url: 'http://127.0.0.1:8000/api/v1/chat/completions',
             model: selectedModel,
             temperature: parseFloat(temperatureSlider.value),
             max_tokens: parseInt(maxTokensSelect.value.split('（')[0]),

@@ -9,7 +9,7 @@ chat_router = APIRouter()
 
 
 @chat_router.post(
-    "/chat/completions",
+    "/completions",
     response_model=None,
     #responses={200: {"model": StreamingResponse}},
     responses={200: {"description": "成功返回流式对话响应", "content": {"text/event-stream": {}}}},

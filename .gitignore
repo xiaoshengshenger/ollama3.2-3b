@@ -53,3 +53,5 @@ Thumbs.db  # Windows 系统垃圾文件
 # HuggingFace 模型缓存（默认路径，体积大，无需提交）
 ~/.cache/huggingface/
 ~/.cache/torch/
+
+electron_app/node_modules/
