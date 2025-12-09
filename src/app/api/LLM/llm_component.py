@@ -58,7 +58,7 @@ class LLMComponent:
                             f"Failed to connect to Ollama, "
                             f"check if Ollama server is running on {ollama_settings.api_base}"
                         )
-                    print(llm.client + "11111111111111111111111")
+                    print(llm.client, "11111111111111111111111")
                     pull_model(llm.client, model_name)
 
                 if (

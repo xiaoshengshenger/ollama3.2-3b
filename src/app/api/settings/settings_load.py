@@ -18,7 +18,7 @@ def load_active_settings() -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"配置文件不存在: {path}")
     
-    with path.open("r") as f:
+    with path.open("r", encoding="utf-8") as f:
         config = load_yaml_with_envvars(f)
     
     if not isinstance(config, dict):

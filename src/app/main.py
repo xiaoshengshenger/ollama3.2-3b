@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Request
 from app.config import settings
 from app.api.settings.settings import settings as settings_yaml
 #
@@ -8,7 +8,12 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 #from llama_index.llms.openai import OpenAI
 from app.api.api_router import api_router
+from app.di import global_injector 
 
+
+def bind_injector_to_request(request: Request):
+    request.state.injector = global_injector  # 绑定到request.state
+    return request
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,7 +30,10 @@ async def lifespan(app: FastAPI):
     # 在这里添加关闭代码
     print("应用关闭中...")
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    dependencies=[Depends(bind_injector_to_request)]  # 添加这行
+)
 
 app.include_router(router=api_router,prefix='/api/v1')
 

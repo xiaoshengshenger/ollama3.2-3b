@@ -100,13 +100,13 @@ class Simple:
         )
 
         for store in (DOCSTORE, INDEXSTORE):
-            wipe_file(str((get_local_data_path / store).absolute()))
+            wipe_file(str((get_local_data_path() / store).absolute()))
 
 
 class Chroma:
     def wipe(self, store_type: str) -> None:
         assert store_type == "vectorstore"
-        wipe_tree(str((get_local_data_path / "chroma_db").absolute()))
+        wipe_tree(str((get_local_data_path() / "chroma_db").absolute()))
 
 
 class Qdrant:

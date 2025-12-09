@@ -56,7 +56,7 @@ def process_streaming(generator: Iterator[Mapping[str, Any]]) -> None:
         total_size = chunk.get("total")
 
         if digest and total_size is not None:
-            if digest not in progress_bars and completed_size > 0:
+            if digest not in progress_bars and (completed_size or 0) > 0:
                 progress_bars[digest] = create_progress_bar(digest, total=total_size)
                 if current_digest is None:
                     current_digest = digest
@@ -84,8 +84,11 @@ def process_streaming(generator: Iterator[Mapping[str, Any]]) -> None:
 
 def pull_model(client: Client, model_name: str, raise_error: bool = True) -> None:
     try:
+        models_response = client.list()
+        print(f"Ollama list 接口返回：{models_response}")
+
         logger.info(f"Pulling model {model_name}. Please wait...")
-        installed_models = [model["name"] for model in client.list().get("models", [])]
+        installed_models = [model["model"] for model in models_response.get("models", [])]
         if model_name not in installed_models:
             process_streaming(client.pull(model_name, stream=True))     
     except Exception as e:

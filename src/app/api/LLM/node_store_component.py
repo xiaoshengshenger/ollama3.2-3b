@@ -18,14 +18,14 @@ class NodeStoreComponent:
             case "simple":
                 try:
                     self.index_store = SimpleIndexStore.from_persist_dir(
-                        persist_dir=str(get_local_data_path)
+                        persist_dir=str(get_local_data_path())
                     )
                 except FileNotFoundError:
                     self.index_store = SimpleIndexStore()
 
                 try:
                     self.doc_store = SimpleDocumentStore.from_persist_dir(
-                        persist_dir=str(get_local_data_path)
+                        persist_dir=str(get_local_data_path())
                     )
                 except FileNotFoundError:
                     self.doc_store = SimpleDocumentStore()
