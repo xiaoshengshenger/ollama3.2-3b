@@ -197,6 +197,10 @@
         <button id="modelBtn" class="btn-secondary text-sm px-4 py-2">
             <span class="font-bold text-xs">🦙 llama3.1</span>
         </button>
+        <button id="activateBtn" class="btn-secondary text-sm px-4 py-2">
+            <i class="fa fa-key text-xs text-accent"></i>
+            <span class="font-bold text-xs">激活码</span>
+        </button>
         <button id="uploadBtn" class="btn-secondary text-sm px-4 py-2">
             <i class="fa fa-cloud-upload text-xs text-accent"></i>
             <span class="font-bold text-xs">上传</span>
@@ -496,6 +500,40 @@
     </div>
 </div>
 
+<!-- 激活码模态框 -->
+<div id="activateModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 space-y-6 shadow-float relative overflow-hidden">
+        <!-- 模态框可爱装饰 -->
+        <div class="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-primary to-secondary"></div>
+        
+        <div class="flex justify-between items-center relative z-10">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa fa-key text-primary"></i>
+                <span>请输入激活码 🔑</span>
+            </h3>
+            <button id="closeActivateModalBtn" class="text-text-secondary hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10">
+                <i class="fa fa-times text-accent"></i>
+            </button>
+        </div>
+        
+        <div class="relative z-10">
+            <input 
+                type="text" 
+                id="activateCodeInput" 
+                class="input-field text-sm"
+                placeholder="请输入您的激活码，例如：ABC123-XYZ789-7890 🎁"
+            >
+        </div>
+        
+        <div class="flex justify-end gap-3 relative z-10">
+            <button id="confirmActivateBtn" class="btn-primary text-sm font-bold">
+                <i class="fa fa-check-circle text-xs"></i>
+                <span>激活 ✨</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // 全局变量
     let selectedDocIds = []; // 移除硬编码的无效 ID
@@ -525,6 +563,13 @@
     const themeBtn = document.getElementById('themeBtn');
     const knowledgeBaseList = document.getElementById('knowledgeBaseList');
     
+    // 新增：激活码相关元素
+    const activateBtn = document.getElementById('activateBtn');
+    const activateModal = document.getElementById('activateModal');
+    const closeActivateModalBtn = document.getElementById('closeActivateModalBtn');
+    const confirmActivateBtn = document.getElementById('confirmActivateBtn');
+    const activateCodeInput = document.getElementById('activateCodeInput');
+    
     // 新增：模型配置相关元素
     const modelSelect = document.getElementById('modelSelect');
     const maxTokensSelect = document.getElementById('maxTokensSelect');
@@ -548,12 +593,55 @@
         resetUploadState();
     });
 
-    // 关闭模态框
+    // 激活码按钮：打开激活码模态框
+    activateBtn.addEventListener('click', () => {
+        activateModal.classList.remove('hidden');
+        // 清空输入框并聚焦
+        activateCodeInput.value = '';
+        setTimeout(() => {
+            activateCodeInput.focus();
+        }, 100);
+    });
+
+    // 关闭上传模态框
     [closeModalBtn, cancelUploadBtn].forEach(btn => {
         btn.addEventListener('click', () => {
             uploadModal.classList.add('hidden');
             resetUploadState();
         });
+    });
+
+    // 关闭激活码模态框
+    closeActivateModalBtn.addEventListener('click', () => {
+        activateModal.classList.add('hidden');
+    });
+
+    // 激活按钮点击事件
+    confirmActivateBtn.addEventListener('click', () => {
+        const code = activateCodeInput.value.trim();
+        if (code) {
+            // 这里可以添加激活码验证逻辑
+            console.log('激活码:', code);
+            
+            // 显示成功消息
+            showSuccessMessage(`激活码 "${code}" 验证成功！🎉 功能已解锁～`);
+            
+            // 关闭模态框
+            activateModal.classList.add('hidden');
+            
+            // 可选：修改激活按钮状态
+            activateBtn.innerHTML = `
+                <i class="fa fa-check text-xs text-mint"></i>
+                <span class="font-bold text-xs">已激活</span>
+            `;
+            activateBtn.classList.add('bg-mint/10');
+            activateBtn.classList.remove('btn-secondary');
+            activateBtn.classList.add('cursor-not-allowed');
+            activateBtn.disabled = true;
+        } else {
+            alert('请输入激活码哦 😜');
+            activateCodeInput.focus();
+        }
     });
 
     // 重置上传状态
