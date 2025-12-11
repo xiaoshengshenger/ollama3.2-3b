@@ -29,6 +29,10 @@ from llama_index.core.postprocessor import (
 from llama_index.core.chat_engine import ContextChatEngine, SimpleChatEngine
 from app.api.llm_api.chunks.chunks_service import Chunk
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @dataclass
 class ChatEngineInput:
     system_message: ChatMessage | None = None
@@ -101,8 +105,8 @@ class ChatService:
         use_context: bool = False,
         context_filter: ContextFilter | None = None,
     ) -> BaseChatEngine:
-        settings = self.settings
         if use_context:
+            logger.info(f"Using context for chat engine:{self.settings.rag.similarity_top_k}")
             vector_index_retriever = self.vector_store_component.get_retriever(
                 index=self.index,
                 context_filter=context_filter,
@@ -111,25 +115,34 @@ class ChatService:
             node_postprocessors: list[BaseNodePostprocessor] = [
                 MetadataReplacementPostProcessor(target_metadata_key="window"),
             ]
-            if settings.rag.similarity_value:
+            if self.settings.rag.similarity_value:
                 node_postprocessors.append(
                     SimilarityPostprocessor(
-                        similarity_cutoff=settings.rag.similarity_value,
+                        similarity_cutoff=self.settings.rag.similarity_value,
                     )
                 )
 
-            if settings.rag.rerank.enabled:
+            if self.settings.rag.rerank.enabled:
                 rerank_postprocessor = SentenceTransformerRerank(
-                    model=settings.rag.rerank.model, top_n=settings.rag.rerank.top_n
+                    model=self.settings.rag.rerank.model, top_n=self.settings.rag.rerank.top_n
                 )
                 node_postprocessors.append(rerank_postprocessor)
 
-            return ContextChatEngine.from_defaults(
+            comtext = ContextChatEngine.from_defaults(
                 system_prompt=system_prompt,
                 retriever=vector_index_retriever,
                 llm=self.llm_component.llm,  # Takes no effect at the moment
                 node_postprocessors=node_postprocessors,
             )
+
+            # ===== 新增：手动验证retriever的检索结果 =====
+            retrieved_nodes = vector_index_retriever.retrieve("你知道什么")
+            logger.info(f"手动检索结果：节点数={len(retrieved_nodes)}")
+            for node in retrieved_nodes:
+                logger.info(f"节点相似度：{node.score}，内容：{node.text[:50]}")
+            
+            return comtext
+            
         else:
             return SimpleChatEngine.from_defaults(
                 system_prompt=system_prompt,
@@ -156,19 +169,21 @@ class ChatService:
         chat_history = (
             chat_engine_input.chat_history if chat_engine_input.chat_history else None
         )
-
         chat_engine = self._chat_engine(
             system_prompt=system_prompt,
             use_context=use_context,
             context_filter=context_filter,
         )
+        logger.info(f"用户问题:{last_message} ----历史记录： {chat_history}")
         streaming_response = chat_engine.stream_chat(
             message=last_message if last_message is not None else "",
             chat_history=chat_history,
         )
+        logger.info(f"streaming_response:{streaming_response}")
         sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
         completion_gen = CompletionGen(
             response=streaming_response.response_gen, sources=sources
         )
+        logger.info(f"sources:{sources}----------completion_gen：{completion_gen}")
         return completion_gen
 

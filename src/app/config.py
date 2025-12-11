@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     EMBEDDING_MODE: Literal["huggingface", "openai", "ollama"] = "huggingface"
 
-    HUGGINGFACE_EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    EMBEDDING_HUGGINGFACE_MODEL: str = "BAAI/bge-small-zh"
 
     LLM_MODE: str
 

@@ -20,8 +20,9 @@ async def lifespan(app: FastAPI):
     # 在这里添加启动代码
     print("应用启动中...")
     if settings.OLLAMA_API_HOST:
-        Settings.embed_model = HuggingFaceEmbedding(model_name=settings_yaml().embedding.huggingface_model)
+        Settings.embed_model = HuggingFaceEmbedding(model_name=settings_yaml().embedding.huggingface_model,)
         Settings.llm = Ollama(base_url=settings.OLLAMA_API_HOST, model=settings_yaml().ollama.llm_model, request_timeout=settings_yaml().ollama.request_timeout)
+        
         
     #elif settings.OPENAI_API_KEY:
         #Settings.llm = OpenAI(model="gpt-4o")

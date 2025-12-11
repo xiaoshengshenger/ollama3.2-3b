@@ -829,7 +829,7 @@
 
             // 使用正确的进度回调传递方式
             const response = await fetchWithProgress(
-                "http://localhost:8001/v1/ingest/file",
+                "http://127.0.0.1:8000/api/v1/ingest/file",
                 { method: "POST", body: formData },
                 updateUploadProgress
             );
@@ -1019,6 +1019,7 @@
                 body: JSON.stringify(requestBody)
             });
 
+            console.log("2222222222", JSON.stringify(response))
             if (!response.ok) throw new Error(`API 响应错误: ${response.status} ${response.statusText}`);
 
             const reader = response.body.getReader();

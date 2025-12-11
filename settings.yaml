@@ -1,7 +1,9 @@
 
 embedding:
   mode: ${EMBEDDING_MODE:huggingface}
-  huggingface_model: ${EMBEDDING_HUGGINGFACE_MODEL:all-MiniLM-L6-v2}
+  huggingface_model: ${EMBEDDING_HUGGINGFACE_MODEL:BAAI/bge-small-zh}
+  ingest_mode: simple
+  embed_dim: 768
 
 llm:
   mode: ${LLM_MODE:ollama}
@@ -9,7 +11,7 @@ llm:
 
 ollama:
   llm_model: ${OLLAMA_LLM_MODEL:llama3.2:3b}
-  embedding_model: ${OLLAMA_EMBEDDING_MODEL:all-MiniLM-L6-v2}
+  embedding_model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
   #容器
   #api_base: ${OLLAMA_API_BASE:http://ollama-cuda:11434}  # 显式指定容器名更稳妥
   #embedding_api_base: ${OLLAMA_EMBEDDING_API_BASE:http://ollama-cuda:11434}
@@ -33,13 +35,13 @@ vectorstore:
 
 
 qdrant:
-  path: local_data/private_gpt/qdrant
+  path: local_data/ollama3/qdrant
 
 nodestore:
   database: simple
 
 data:
-  local_data_folder: local_data/private_gpt
+  local_data_folder: local_data/ollama3
 
 rag:
   similarity_top_k: 2

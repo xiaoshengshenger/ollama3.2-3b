@@ -8,8 +8,12 @@ class EmbeddingSettings(BaseModel):
         "huggingface",
     ]
     huggingface_model: Literal[
-        "all-MiniLM-L6-v2",
+        "BAAI/bge-small-zh",
     ]
+    ingest_mode: Literal[
+        "simple",
+    ]
+    embed_dim: int
 
 class LlmSettings(BaseModel):
     mode: Literal[
@@ -30,7 +34,7 @@ class OllamaSettings(BaseModel):
         "llama3.2:70b",
     ]
     embedding_model: Literal[
-        "all-MiniLM-L6-v2",
+        "nomic-embed-text",
     ]
     api_base: str
     embedding_api_base: str

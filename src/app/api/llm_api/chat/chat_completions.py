@@ -5,6 +5,10 @@ from llama_index.core.llms import ChatMessage, MessageRole
 from app.api.llm_api.chat.chat_server import ChatService
 from app.api.llm_api.llm_model import to_openai_sse_stream
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 chat_router = APIRouter()
 
 
@@ -34,6 +38,7 @@ def chat_completion(
         use_context=body.use_context,
         context_filter=body.context_filter,
     )
+    logger.debug(f"asdasdasd:: {completion_gen.response} ---- {completion_gen.sources}")
     return StreamingResponse(
         to_openai_sse_stream(
             completion_gen.response,
