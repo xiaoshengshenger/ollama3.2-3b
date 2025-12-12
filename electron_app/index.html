@@ -194,9 +194,6 @@
         </h1>
     </div>
     <div class="flex items-center gap-3 z-10">
-        <button id="modelBtn" class="btn-secondary text-sm px-4 py-2">
-            <span class="font-bold text-xs">🦙 llama3.1</span>
-        </button>
         <button id="activateBtn" class="btn-secondary text-sm px-4 py-2">
             <i class="fa fa-key text-xs text-accent"></i>
             <span class="font-bold text-xs">激活码</span>
@@ -292,7 +289,7 @@
         </div>
     </aside>
 
-    <!-- 中间聊天区 -->
+    <!-- 中间聊天区（占据原右侧空间） -->
     <section class="flex-1 flex flex-col overflow-hidden">
         <div id="chatContainer" class="flex-1 p-5 md:p-8 overflow-y-auto scrollbar-hide space-y-6 relative">
             <!-- 欢迎消息 -->
@@ -349,89 +346,6 @@
             </form>
         </div>
     </section>
-
-    <!-- 右侧配置面板 -->
-    <aside id="configPanel" class="w-72 border-l border-primary/10 bg-white/50 p-5 hidden lg:block overflow-y-auto scrollbar-hide">
-        <div class="space-y-8">
-            <div class="card">
-                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
-                    <i class="fa fa-cog text-primary"></i>
-                    <span>模型配置 🛠️</span>
-                </h2>
-                <div class="space-y-5">
-                    <div>
-                        <label class="block text-xs font-bold text-text-secondary mb-2">选择可爱模型</label>
-                        <select id="modelSelect" class="input-field text-sm p-3">
-                            <option selected>llama3.2:3b</option>
-                            <option>🐱 qwen:7b-chat（CPU）</option>
-                            <option>🐶 mistral:7b-instruct（GPU）</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-text-secondary mb-2">创意温度 🌡️</label>
-                        <input type="range" min="0" max="1" step="0.1" value="0.1" class="w-full accent-primary" id="temperatureSlider">
-                        <div class="flex justify-between text-xs text-text-secondary mt-2">
-                            <span class="font-bold">超正经</span>
-                            <span id="temperatureValue" class="text-accent font-bold">0.1</span>
-                            <span class="font-bold">超脑洞</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-text-secondary mb-2">回答长度 📏</label>
-                        <select id="maxTokensSelect" class="input-field text-sm p-3">
-                            <option>256（简短）</option>
-                            <option selected>512（适中）</option>
-                            <option>1024（详细）</option>
-                            <option>2048（超长）</option>
-                        </select>
-                    </div>
-                    <button class="w-full btn-primary text-sm font-bold">
-                        <i class="fa fa-save text-xs"></i>
-                        <span>保存配置 💾</span>
-                    </button>
-                </div>
-            </div>
-            <div class="card">
-                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
-                    <i class="fa fa-comment text-secondary"></i>
-                    <span>系统提示词 📝</span>
-                </h2>
-                <textarea id="systemPrompt" class="input-field h-32 text-sm" placeholder="输入系统提示词...">你是一个可爱、友好、充满童趣的AI助手，回答要轻松有趣，多用emoji和可爱的语气，始终保持耐心和热情。</textarea>
-                <button class="w-full btn-primary text-sm font-bold mt-4">
-                    <i class="fa fa-save text-xs"></i>
-                    <span>更新提示词 ✨</span>
-                </button>
-            </div>
-            <div class="card">
-                <h2 class="text-lg font-bold mb-5 flex items-center gap-2">
-                    <i class="fa fa-heart text-accent"></i>
-                    <span>服务状态 📊</span>
-                </h2>
-                <div class="space-y-4 text-sm">
-                    <div class="flex justify-between items-center">
-                        <span class="text-text-secondary">模型状态：</span>
-                        <span class="text-green-500 flex items-center gap-1 font-bold">
-                            <i class="fa fa-check-circle"></i> 快乐运行中
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-text-secondary">GPU 加速：</span>
-                        <span id="gpuStatus" class="text-green-500 flex items-center gap-1 font-bold">
-                            <i class="fa fa-check-circle"></i> 已启用 🚀
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-text-secondary">显存占用：</span>
-                        <span class="font-bold text-accent">2.8 GB / 8 GB</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-text-secondary">响应速度：</span>
-                        <span class="font-bold text-primary">超快 ⚡</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </aside>
 </main>
 
 <!-- 底部状态栏 -->
@@ -544,8 +458,7 @@
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
     const chatContainer = document.getElementById('chatContainer');
-    const modelBtn = document.getElementById('modelBtn');
-    const configPanel = document.getElementById('configPanel');
+
     const uploadBtn = document.getElementById('uploadBtn');
     const uploadModal = document.getElementById('uploadModal');
     const closeModalBtn = document.getElementById('closeModalBtn');
@@ -559,7 +472,6 @@
     const uploadProgressBar = document.getElementById('uploadProgressBar');
     const uploadProgressText = document.getElementById('uploadProgressText');
     const confirmUploadBtn = document.getElementById('confirmUploadBtn');
-    const temperatureSlider = document.getElementById('temperatureSlider');
     const temperatureValue = document.getElementById('temperatureValue');
     const themeBtn = document.getElementById('themeBtn');
     const knowledgeBaseList = document.getElementById('knowledgeBaseList');
@@ -572,20 +484,13 @@
     const activateCodeInput = document.getElementById('activateCodeInput');
     
     // 新增：模型配置相关元素
-    const modelSelect = document.getElementById('modelSelect');
-    const maxTokensSelect = document.getElementById('maxTokensSelect');
+    const modelSelect = 'llama3.2:3b';
+    const maxTokens = 512;
     const systemPrompt = '你是一个可爱、友好、充满童趣的AI助手，回答要轻松有趣，多用emoji和可爱的语气，始终保持耐心和热情。';
-    const gpuStatus = document.getElementById('gpuStatus');
+    const temperatureSlider = 0.5;
 
-    // 温度滑块实时更新
-    temperatureSlider.addEventListener('input', () => {
-        temperatureValue.textContent = temperatureSlider.value;
-    });
+    
 
-    // 模型按钮：切换配置面板显示
-    modelBtn.addEventListener('click', () => {
-        configPanel.classList.toggle('hidden');
-    });
 
     // 上传按钮：打开模态框
     uploadBtn.addEventListener('click', () => {
@@ -945,14 +850,12 @@
 
     // 核心修改：API 调用逻辑
     function getApiConfig() {
-        const selectedModel = modelSelect.value;
-        console.log("44444444" , selectedModel, modelSelect.value)
         return {
             url: api_url + '/chat/completions',
-            model: selectedModel,
-            temperature: parseFloat(temperatureSlider.value),
-            max_tokens: parseInt(maxTokensSelect.value.split('（')[0]),
-            system_prompt: systemPrompt.value.trim()
+            model: modelSelect,
+            temperature: temperatureSlider,
+            max_tokens: maxTokens,
+            system_prompt: systemPrompt.trim()
         };
     }
 
