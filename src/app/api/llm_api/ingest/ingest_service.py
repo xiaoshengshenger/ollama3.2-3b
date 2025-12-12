@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from typing import AnyStr, BinaryIO
+from typing import TYPE_CHECKING, AnyStr, BinaryIO
 
 from injector import inject, singleton
 from llama_index.core.node_parser import SentenceWindowNodeParser
@@ -16,7 +16,12 @@ from app.api.LLM.vector_store_component import (
 from app.api.llm_api.ingest.model import IngestedDoc
 from app.api.settings.settings import settings
 
+if TYPE_CHECKING:
+    from llama_index.core.storage.docstore.types import RefDocInfo
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 @singleton
 class IngestService:
@@ -65,4 +70,31 @@ class IngestService:
     ) -> list[IngestedDoc]:
         file_data = raw_file_data.read()
         return self._ingest_data(file_name, file_data)
+    
+
+    def list_ingested(self) -> list[IngestedDoc]:
+        ingested_docs: list[IngestedDoc] = []
+        try:
+            docstore = self.storage_context.docstore
+            ref_docs: dict[str, RefDocInfo] | None = docstore.get_all_ref_doc_info()
+
+            if not ref_docs:
+                return ingested_docs
+
+            for doc_id, ref_doc_info in ref_docs.items():
+                doc_metadata = None
+                if ref_doc_info is not None and ref_doc_info.metadata is not None:
+                    doc_metadata = IngestedDoc.curate_metadata(ref_doc_info.metadata)
+                ingested_docs.append(
+                    IngestedDoc(
+                        object="ingest.document",
+                        doc_id=doc_id,
+                        doc_metadata=doc_metadata,
+                    )
+                )
+        except ValueError:
+            logger.warning("Got an exception when getting list of docs", exc_info=True)
+            pass
+        logger.debug("Found count=%s ingested documents", len(ingested_docs))
+        return ingested_docs
 

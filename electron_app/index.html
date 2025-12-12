@@ -538,6 +538,7 @@
     // 全局变量
     let selectedDocIds = []; // 移除硬编码的无效 ID
     let currentUploadFile = null;
+    let api_url = 'http://127.0.0.1:8000/api/v1';
 
     // DOM 元素获取
     const chatForm = document.getElementById('chatForm');
@@ -573,7 +574,7 @@
     // 新增：模型配置相关元素
     const modelSelect = document.getElementById('modelSelect');
     const maxTokensSelect = document.getElementById('maxTokensSelect');
-    const systemPrompt = document.getElementById('systemPrompt');
+    const systemPrompt = '你是一个可爱、友好、充满童趣的AI助手，回答要轻松有趣，多用emoji和可爱的语气，始终保持耐心和热情。';
     const gpuStatus = document.getElementById('gpuStatus');
 
     // 温度滑块实时更新
@@ -829,7 +830,7 @@
 
             // 使用正确的进度回调传递方式
             const response = await fetchWithProgress(
-                "http://127.0.0.1:8000/api/v1/ingest/file",
+                api_url + "/ingest/file",
                 { method: "POST", body: formData },
                 updateUploadProgress
             );
@@ -947,7 +948,7 @@
         const selectedModel = modelSelect.value;
         console.log("44444444" , selectedModel, modelSelect.value)
         return {
-            url: 'http://127.0.0.1:8000/api/v1/chat/completions',
+            url: api_url + '/chat/completions',
             model: selectedModel,
             temperature: parseFloat(temperatureSlider.value),
             max_tokens: parseInt(maxTokensSelect.value.split('（')[0]),
@@ -1114,9 +1115,9 @@
 
     async function initKnowledgeBase() {
         try {
-            const response = await fetch("http://localhost:8001/v1/ingest/list");
+            const response = await fetch(api_url + "/ingest/list");
             if (!response.ok) throw new Error("获取文件列表失败");
-            console.error("初始化知识库数据：", response);
+            console.info("初始化知识库数据：", response);
             const result = await response.json();
            
             if (result.data && Array.isArray(result.data)) {
