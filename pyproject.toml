@@ -41,7 +41,7 @@ pyyaml = "^6.0.2"
 #用于拉取ollama模型
 retry-async = "^0.1.4"
 
-llama-index-vector-stores-qdrant = {version ="*", optional = true}
+llama-index-vector-stores-qdrant = "^0.1.4"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

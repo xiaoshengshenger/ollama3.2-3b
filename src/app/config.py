@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     EMBEDDING_HUGGINGFACE_MODEL: str = "BAAI/bge-small-zh"
 
-    LLM_MODE: str
+    LLM_MODE: str = "ollama"
 
     class Config:
         env_file = ".env"  

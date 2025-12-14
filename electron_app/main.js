@@ -57,7 +57,8 @@ function createWindow() {
   });
 
   // 加载本地 index.html
-  mainWindow.loadFile('index.html');
+  //mainWindow.loadFile('index.html');
+  mainWindow.loadURL('http://127.0.0.1:5173');
 
   // 打开开发者工具（方便调试）
   mainWindow.webContents.openDevTools();
