@@ -3,10 +3,10 @@
     <!-- 分割线 -->
     <div class="h-[1px] bg-gray-200 ml-[20px] mr-[20px]"></div>
     <!-- 历史记录标题 -->
-    <div class="ml-[5px] mt-[10px] text-sm text-gray-500 font-medium">历史记录</div>
+    <div class="ml-[20px] mt-[10px] text-sm text-gray-500 font-medium">历史记录</div>
 
     <!-- 历史记录列表：简化层级，统一样式控制 -->
-    <div class="ml-[5px] mt-[5px] mr-[5px]">
+    <div class="ml-[15px] mt-[5px] mr-[5px]">
       <div
         v-for="item in historyList"
         :key="item.id"

@@ -8,28 +8,7 @@
       <!-- 左侧列表区 -->
       <aside class="w-64 border-r border-gray-200 bg-white flex-shrink-0 overflow-y-auto">
         <!-- 我的聊天列表 -->
-        <div class="p-4 border-b border-gray-200">
-          <h2 class="text-xs font-bold uppercase tracking-wider mb-3 text-gray-500">我的聊天</h2>
-          <button 
-            class="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-100 rounded-lg text-sm font-medium mb-3 hover:bg-gray-200 transition-colors"
-            @click="createNewChat"
-          >
-            <i class="fa fa-plus-circle text-blue-500"></i>
-            <span>新对话</span>
-          </button>
-          <div class="space-y-1">
-            <div 
-              v-for="item in appStore.chatList" 
-              :key="item.key"
-              class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm cursor-pointer hover:bg-gray-100 transition-colors"
-              :class="{ 'bg-gray-100 font-medium': appStore.currentView === item.key }"
-              @click="appStore.switchView(item.key)"
-            >
-              <i :class="`fa ${item.icon} text-blue-500`"></i>
-              <span>{{ item.title }}</span>
-            </div>
-          </div>
-        </div>
+        <ChatList />
 
         <!-- 历史记录（原我的知识库） -->
         <HistoryList />
@@ -62,6 +41,7 @@ import VoiceView from './views/VoiceView.vue';
 import ImageView from './views/ImageView.vue';
 import VideoView from './views/VideoView.vue';
 import HistoryList from './components/HistoryList.vue';
+import ChatList from './components/ChatList.vue'; 
 
 // 初始化Pinia store
 const appStore = useAppStore();

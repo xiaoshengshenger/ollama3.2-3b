@@ -10,7 +10,6 @@ export interface ChatItem {
 export interface Message {
   role: 'user' | 'system' | 'assistant';
   content: string;
-  // 【新增】为了精准定位消息，需要给 Message 添加唯一 id 属性（关键）
   id?: string;
 }
 
@@ -34,10 +33,10 @@ interface AppState {
 
 export const useAppStore = defineStore('app', {
   state: (): AppState => ({
-    apiUrl: 'http://127.0.0.1:8000/api/v1/chat/completions',
+    apiUrl: 'http://127.0.0.1:8000/api/v1/',
     llmModel: 'llama3.2:3b',
     system_prompt: '答案要简洁明了，直奔主题，避免冗长的解释。',
-    currentView: 'llmModel', // 默认显示聊天视图
+    currentView: 'llmModel', 
     currentHistoryId: '1',
     chatList: [
       { title: "新对话", icon: "fa-comments", key: "llmModel" },
@@ -146,5 +145,6 @@ export const useAppStore = defineStore('app', {
       // 3. 更新消息内容（核心逻辑）
       this.historyList[historyIndex].list[messageIndex].content = content;
     }
-  }
+  },
+  persist: true
 });

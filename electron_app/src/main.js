@@ -1,19 +1,20 @@
 // src/main.js
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-// 引入根组件
 import App from './App.vue';
-// 引入全局样式（Tailwind + 自定义样式）
-import './assets/index.css';
-// 引入font-awesome图标库
 import '@fortawesome/fontawesome-free/css/all.css';
+// v4.x 版本需导入 createPersistedState 函数（而非直接导入插件）
+import { createPersistedState } from 'pinia-plugin-persistedstate';
 
-// 创建Vue应用实例
 const app = createApp(App);
-// 创建Pinia实例（状态管理）
 const pinia = createPinia();
 
-// 安装Pinia插件
+const persistedState = createPersistedState({
+  storage: localStorage,
+});
+
+// 2. 注册插件到 Pinia
+pinia.use(persistedState);
+
 app.use(pinia);
-// 挂载应用到#app节点
 app.mount('#app');

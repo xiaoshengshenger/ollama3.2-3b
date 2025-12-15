@@ -71,8 +71,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue';
-import { useAppStore } from '../stores/appStore';
-import { Message } from '../stores/appStore';
+import { useAppStore, Message } from '../stores/appStore';
 import { storeToRefs } from 'pinia';
 
 // 初始化 Pinia store
@@ -158,7 +157,7 @@ const sendMessage = async () => {
     console.log('请求参数:', JSON.stringify(requestBody));
 
     // 发送POST请求（使用fetch而非axios，因为axios处理流式响应较复杂）
-    const response = await fetch(apiUrl.value, {
+    const response = await fetch( `${apiUrl.value}chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
