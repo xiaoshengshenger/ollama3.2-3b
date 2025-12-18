@@ -1,19 +1,61 @@
 {
   "name": "electron_app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Electron + Vue + Vite 应用",
   "main": "main.js",
   "scripts": {
-    "start:vite": "vite",
-    "start:electron": "electron .",
-    "start": "npm-run-all --parallel start:vite start:electron"
+    "start:vite": "cross-env NODE_ENV=development vite",
+    "start:electron": "cross-env NODE_ENV=development electron .",
+    "start": "npm-run-all --parallel start:vite start:electron",
+    "build:vite": "cross-env NODE_ENV=production vite build",
+    "build:electron": "cross-env NODE_ENV=production electron-builder",
+    "build": "npm run build:vite && npm run build:electron",
+    "clean": "rimraf dist release"
+  },
+  "build": {
+    "appId": "com.example.electron-vue-vite",
+    "productName": "ElectronVueViteApp",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "dist/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "main.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "src/assets/icon.icns"
+    },
+    "linux": {
+      "target": "deb",
+      "icon": "src/assets/icon.png"
+    }
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.3",
+    "cross-env": "^10.1.0",
     "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
     "npm-run-all": "^4.1.5"
   },
   "dependencies": {

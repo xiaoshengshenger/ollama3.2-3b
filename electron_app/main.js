@@ -6,6 +6,9 @@ const fs = require('fs');
 // 解决 Electron 20+ 版本的安全警告
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
+const isDev = process.env.NODE_ENV === 'development';
+
+app.disableHardwareAcceleration();
 // 声明窗口变量，避免被垃圾回收
 let mainWindow;
 
@@ -45,23 +48,29 @@ function createWindow() {
 
   // 核心配置：关闭 Node 集成 + 开启上下文隔离（解决 FormData 问题）
   mainWindow = new BrowserWindow({
-    width: 1000,
+    width: 2000,
     height: 700,
     webPreferences: {
-      nodeIntegration: false, // 必须关闭（核心）
-      contextIsolation: true, // 必须开启（核心）
+      nodeIntegration: true, // 必须关闭（核心）
+      contextIsolation: false, // 必须开启（核心）
       webSecurity: false, // 允许跨域请求后端
       allowRunningInsecureContent: true, // 允许加载本地资源
-      preload: path.join(__dirname, 'preload.js') // preload 路径（即使没创建 preload.js 也不会报错）
+      preload: path.join(__dirname, 'preload.js'), // preload 路径（即使没创建 preload.js 也不会报错）
+      nodeIntegrationInWorker: true
     }
   });
-
-  // 加载本地 index.html
-  //mainWindow.loadFile('index.html');
-  mainWindow.loadURL('http://127.0.0.1:5173');
-
-  // 打开开发者工具（方便调试）
   mainWindow.webContents.openDevTools();
+  console.log(isDev,"~~~~~~~~~~~~",path.join(__dirname, './dist/index.html'));
+
+  if (isDev) {
+    mainWindow.loadURL('http://127.0.0.1:5173');
+    // 自动打开开发者工具
+    mainWindow.webContents.openDevTools();
+  } else {
+    // 生产环境：加载 Vite 构建后的 dist/index.html（关键：适配你的 outDir: 'dist'）
+    mainWindow.loadFile(path.join(__dirname, './dist/index.html'));
+    
+  }
 
   watchFrontendChanges();
 

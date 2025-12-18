@@ -1482,7 +1482,6 @@ description = "llama-index vector_stores qdrant integration"
 optional = false
 python-versions = ">=3.9,<4.0"
 groups = ["main"]
-markers = "python_version >= \"3.13\""
 files = [
     {file = "llama_index_vector_stores_qdrant-0.1.4-py3-none-any.whl", hash = "sha256:cb1adad8f6812fdda888079195fdb0697d7e9409e437a0e48dddd1288276bdab"},
     {file = "llama_index_vector_stores_qdrant-0.1.4.tar.gz", hash = "sha256:5088842fb65470642eb3286cf5c16c3ce67cab11fba2ea029d031e9a5868d250"},
@@ -1492,29 +1491,6 @@ files = [
 grpcio = ">=1.60.0,<2.0.0"
 llama-index-core = ">=0.10.1,<0.11.0"
 qdrant-client = ">=1.7.1,<2.0.0"
-
-[package.source]
-type = "legacy"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-reference = "tsinghua"
-
-[[package]]
-name = "llama-index-vector-stores-qdrant"
-version = "0.2.17"
-description = "llama-index vector_stores qdrant integration"
-optional = false
-python-versions = ">=3.9,<3.13"
-groups = ["main"]
-markers = "python_version < \"3.13\""
-files = [
-    {file = "llama_index_vector_stores_qdrant-0.2.17-py3-none-any.whl", hash = "sha256:ac0a81c8a24e52b292e972a923be356ff7bb933a88b2a49b1172c193c7524cae"},
-    {file = "llama_index_vector_stores_qdrant-0.2.17.tar.gz", hash = "sha256:a898da1929fec298bcd6827823aacdc0a18e6bd553770141069575ae8454bcc3"},
-]
-
-[package.dependencies]
-grpcio = ">=1.60.0,<2.0.0"
-llama-index-core = ">=0.10.1,<0.11.0"
-qdrant-client = ">=1.7.1"
 
 [package.source]
 type = "legacy"
@@ -5059,4 +5035,4 @@ reference = "tsinghua"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "01f5e51233894ff58602db5a8a711e5fae8711788de0e6b6ef38988878ea37cf"
+content-hash = "bff3ff648892ce9cc88ce2e63c6c989f59b15f596057adb78c9714a38d5e69ca"

@@ -35,7 +35,9 @@ vectorstore:
 
 
 qdrant:
-  path: local_data/ollama3/qdrant
+  #path: local_data/ollama3/qdrant
+  #docker 配置
+  path: /app/data
 
 nodestore:
   database: simple

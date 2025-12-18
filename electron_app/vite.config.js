@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
   plugins: [vue()],
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   server: {
     port: 5173,        // 和 main.js 中 loadURL 的端口一致
     host: '127.0.0.1', // 避免 localhost 解析异常
@@ -11,6 +12,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',    // 打包到当前目录的 dist 文件夹
-    emptyOutDir: true
+    emptyOutDir: true,
+    assetsDir: 'assets',
   }
 });
