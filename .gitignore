@@ -60,3 +60,4 @@ local_data/
 electron_app/release/
 qdrant_data/
 ollama_data/
+backend/cache/

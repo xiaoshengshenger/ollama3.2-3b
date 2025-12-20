@@ -14,7 +14,7 @@ include = ["src/"]
 
 # Poetry 依赖（保留原有依赖，无变动）
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
+python = "^3.13.9"
 qdrant-client = "^1.16.1"
 uvicorn = "^0.38.0"
 fastapi = "^0.123.8"
