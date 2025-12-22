@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal
 from backend_app.api.settings.settings_load import load_active_settings
 
@@ -36,7 +36,11 @@ class OllamaSettings(BaseModel):
     embedding_model: Literal[
         "nomic-embed-text",
     ]
-    api_base: str
+    api_base: str = Field(
+        default="http://ollama-server:11434",  # 本地开发默认值
+        env="OLLAMA_HOST",  # 绑定Docker的环境变量OLLAMA_HOST
+        description="Ollama server base URL"
+    )
     embedding_api_base: str
     tfs_z: float    
     top_k: int

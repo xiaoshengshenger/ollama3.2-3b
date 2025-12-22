@@ -1,51 +1,50 @@
 version: '3.8'
 
-# 仅保留一个 services 节点，包含所有服务配置
 services:
   backend:
-    #build:
-      #context: .
-      #dockerfile: src/Dockerfile.backend
-    image: fastapi-backend:v1 # 使用预构建镜像，避免每次都构建  
-    container_name: ollama-backend
+    image: fastapi-backend:v1
+    container_name: fastapi-backend  # 修正：原是ollama-backend，改为fastapi-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./rag_data:/app/data  # 知识库数据持久化
+      - ./rag_data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      - OLLAMA_HOST=http://ollama-server:11434  # 关联 Ollama 服务
+      - OLLAMA_HOST=http://ollama-server:11434  # 正确：指向Ollama服务名
       - QDRANT_HOST=qdrant-server
       - QDRANT_PORT=6333
     restart: unless-stopped
     networks:
       - app-network
+    depends_on:
+      - ollama-server  # 关键：让FastAPI在Ollama启动后再启动
+      - qdrant-server
 
-  # 新增 Ollama 服务（若项目依赖本地 Ollama 实例）
   ollama-server:
     image: ollama/ollama:latest
-    container_name: ollama
+    container_name: ollama-server  # 修正：原是ollama，改为ollama-server（与服务名一致）
     ports:
       - "11434:11434"
     volumes:
-      - ./ollama_data:/root/.ollama  # 模型数据持久化
+      - ./ollama_data:/root/.ollama
     restart: unless-stopped
     networks:
       - app-network
+    # 可选：启动时自动拉取模型（比如llama3），避免手动操作
+    
+    #command: ["run", "llama3"]
 
-  # 新增 Qdrant 向量数据库服务
   qdrant-server:
     image: qdrant/qdrant:latest
-    container_name: qdrant
+    container_name: qdrant-server  # 修正：原是qdrant，改为qdrant-server（与服务名一致）
     ports:
       - "6333:6333"
     volumes:
-      - ./qdrant_data:/qdrant/storage  # 向量数据持久化
+      - ./qdrant_data:/qdrant/storage
     restart: unless-stopped
     networks:
       - app-network
 
-# 网络配置（仅需定义一次）
 networks:
   app-network:
     driver: bridge

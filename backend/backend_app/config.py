@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Ollama API：本地默认地址（无需手动配置，启动 Ollama 后直接用）
-    OLLAMA_API_HOST: str = "http://localhost:11434"
+    OLLAMA_API_HOST: str = "http://ollama-server:11434"
 
     # ChatGPT：设为可选（None 表示不用 OpenAI）
     OPENAI_API_KEY: Optional[str] = None  # 可选字段，默认 None
