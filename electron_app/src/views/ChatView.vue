@@ -76,7 +76,7 @@ import { storeToRefs } from 'pinia';
 
 // 初始化 Pinia store
 const appStore = useAppStore();
-const { system_prompt, llmModel, apiUrl } = storeToRefs(appStore);
+const { system_prompt, llmModel, apiUrl, KnowledgeBaseItem } = storeToRefs(appStore);
 
 // 计算属性：监听当前选中的历史记录（响应式更新）
 const currentHistory = computed(() => appStore.getCurrentHistory);
@@ -90,18 +90,15 @@ const isLoading = ref(false);
 // 聊天容器引用（用于滚动到底部）
 const chatContainer = ref<HTMLDivElement | null>(null);
 
-// 选中的文档ID（可根据实际需求调整）
-const selectedDocIds = ref<string[]>([]); // 示例：文档ID列表
-
 
 // 转义HTML特殊字符（防止XSS）
 const escapeHtml = (str: string) => {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return str;
+    //.replace(/&/g, '&amp;')
+    //.replace(/</g, '&lt;')
+    //.replace(/>/g, '&gt;')
+    //.replace(/"/g, '&quot;')
+    //.replace(/'/g, '&#039;');
 };
 
 // 发送消息
@@ -147,10 +144,10 @@ const sendMessage = async () => {
       model: llmModel.value,
       messages: messages,
       stream: true,
-      use_context: selectedDocIds.value.length > 0,
-      include_sources: false,
-      ...(selectedDocIds.value.length > 0 && {
-        context_filter: { docs_ids: selectedDocIds.value }
+      use_context: false,
+      include_sources: true,
+      ...(KnowledgeBaseItem.value.length > 0 && {
+        context_filter: { docs_ids: KnowledgeBaseItem.value.map(item => item.doc_id) }
       })
     };
 

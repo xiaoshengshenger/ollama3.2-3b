@@ -134,12 +134,6 @@ class ChatService:
                 llm=self.llm_component.llm,  # Takes no effect at the moment
                 node_postprocessors=node_postprocessors,
             )
-
-            # ===== 新增：手动验证retriever的检索结果 =====
-            retrieved_nodes = vector_index_retriever.retrieve("你知道什么")
-            logger.info(f"手动检索结果：节点数={len(retrieved_nodes)}")
-            for node in retrieved_nodes:
-                logger.info(f"节点相似度：{node.score}，内容：{node.text[:50]}")
             
             return comtext
             

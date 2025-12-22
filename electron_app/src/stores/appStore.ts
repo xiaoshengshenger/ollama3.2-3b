@@ -20,6 +20,12 @@ export interface HistoryItem {
   list: Message[];
 }
 
+export interface KnowledgeBaseItem {
+  doc_id: string;
+  file_name: string;
+  doc_metadata?: any;
+}
+
 // 定义应用状态类型
 interface AppState {
   apiUrl: string; // API 请求地址
@@ -29,13 +35,14 @@ interface AppState {
   currentHistoryId: string | null;
   chatList: ChatItem[];
   historyList: HistoryItem[];
+  KnowledgeBaseItem: KnowledgeBaseItem[];
 }
 
 export const useAppStore = defineStore('app', {
   state: (): AppState => ({
     apiUrl: 'http://127.0.0.1:8000/api/v1/',
     llmModel: 'llama3.2:3b',
-    system_prompt: '答案要简洁明了，直奔主题，避免冗长的解释。',
+    system_prompt: '你是一个可爱、友好、充满童趣的AI助手，回答要轻松有趣，多用emoji和可爱的语气，始终保持耐心和热情。',
     currentView: 'llmModel', 
     currentHistoryId: '1',
     chatList: [
@@ -76,7 +83,8 @@ export const useAppStore = defineStore('app', {
           { id: "3-4", role: "assistant", content: "Pinia与Vuex的主要区别包括：没有Mutation，直接通过Action修改状态；更好的TypeScript集成；不需要嵌套模块，可以平级组织store；支持组合式API风格等。" }
         ]
       }
-    ]
+    ],
+    KnowledgeBaseItem: []
   }),
   getters: {
     // 获取当前选中的历史记录
@@ -94,6 +102,9 @@ export const useAppStore = defineStore('app', {
       this.currentHistoryId = id;
       // 切换到聊天视图
       this.switchView('llmModel');
+    },
+    updateKnowledgeBaseItem(items: KnowledgeBaseItem[]) {
+      this.KnowledgeBaseItem = items;
     },
     // 添加新的历史记录
     addHistory(history: HistoryItem) {

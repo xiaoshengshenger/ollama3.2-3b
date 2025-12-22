@@ -16,13 +16,13 @@
             <span>加载中...</span>
           </div>
           <!-- 空状态 -->
-          <div v-else-if="knowledgeBaseList.length === 0" class="px-4 py-8 text-center text-gray-500">
+          <div v-else-if="KnowledgeBaseItem.length === 0" class="px-4 py-8 text-center text-gray-500">
             <i class="fa fa-folder-open-o mr-2"></i>
             <span>暂无上传的文件</span>
           </div>
           <!-- 动态列表项 -->
           <div
-            v-for="item in knowledgeBaseList"
+            v-for="item in KnowledgeBaseItem"
             :key="item.doc_id"
             class="px-4 py-3 flex items-center justify-between"
           >
@@ -80,7 +80,7 @@ import { ref, reactive, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAppStore } from '../stores/appStore';
 const appStore = useAppStore();
-const { apiUrl } = storeToRefs(appStore);
+const { apiUrl, KnowledgeBaseItem } = storeToRefs(appStore);
 
 // 定义类型
 interface KnowledgeBaseItem {
@@ -105,7 +105,6 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const loading = ref(false); // 列表加载状态
 const uploading = ref(false); // 上传加载状态
 const knowledgeBaseList = reactive<KnowledgeBaseItem[]>([]); // 知识库文件列表
-const selectedDocIds = reactive<string[]>([]); // 选中的文档ID列表（与原有逻辑一致）
 
 // 监听弹窗显隐：打开时加载文件列表
 watch(
@@ -129,7 +128,6 @@ const fetchFileList = async () => {
 
     // 清空原有数据
     knowledgeBaseList.length = 0;
-    selectedDocIds.length = 0;
 
     // 添加所有已上传的文件
     if (result.data && Array.isArray(result.data)) {
@@ -141,11 +139,14 @@ const fetchFileList = async () => {
             file_name: doc.doc_metadata.file_name,
             doc_metadata: doc.doc_metadata,
           });
-          // 选中的文档ID（与原有逻辑一致）
-          selectedDocIds.push(doc.doc_id);
         }
       });
+      if (knowledgeBaseList.length > 0) {
+        // 选中状态更新todo
+        appStore.updateKnowledgeBaseItem([...knowledgeBaseList]);
+      }
     }
+
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "初始化知识库失败";
     console.error("初始化知识库失败：", errorMsg);

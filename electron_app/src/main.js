@@ -9,12 +9,8 @@ import { createPersistedState } from 'pinia-plugin-persistedstate';
 const app = createApp(App);
 const pinia = createPinia();
 
-const persistedState = createPersistedState({
-  storage: localStorage,
-});
-
 // 2. 注册插件到 Pinia
-pinia.use(persistedState);
+pinia.use(createPersistedState());
 
 app.use(pinia);
 app.mount('#app');

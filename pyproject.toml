@@ -9,12 +9,12 @@ license = "MIT"
 readme = "README.md"
 keywords = ["fastapi", "llama-index", "ollama", "embedding"]
 # 项目结构配置
-packages = [{ include = "app", from = "src" }]
-include = ["src/"]
+packages = [{ include = "backend_app", from = "backend" }]
+include = ["backend/"]
 
 # Poetry 依赖（保留原有依赖，无变动）
 [tool.poetry.dependencies]
-python = "^3.13.9"
+python = "^3.11.4"
 qdrant-client = "^1.16.1"
 uvicorn = "^0.38.0"
 fastapi = "^0.123.8"

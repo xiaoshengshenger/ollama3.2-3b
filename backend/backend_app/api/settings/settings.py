@@ -37,7 +37,10 @@ class OllamaSettings(BaseModel):
         "nomic-embed-text",
     ]
     api_base: str = Field(
-        default="http://ollama-server:11434",  # 本地开发默认值
+        # 容器
+        #default="http://ollama-server:11434",  
+        # 本地
+        default="http://localhost:11434",# 本地开发默认值
         env="OLLAMA_HOST",  # 绑定Docker的环境变量OLLAMA_HOST
         description="Ollama server base URL"
     )

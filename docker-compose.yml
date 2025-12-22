@@ -2,8 +2,11 @@ version: '3.8'
 
 services:
   backend:
-    image: fastapi-backend:v1
-    container_name: fastapi-backend  # 修正：原是ollama-backend，改为fastapi-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.backend
+    #image: fastapi-backend:v1
+    #container_name: fastapi-backend  # 修正：原是ollama-backend，改为fastapi-backend
     ports:
       - "8000:8000"
     volumes:
