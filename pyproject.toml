@@ -14,13 +14,13 @@ include = ["backend/"]
 
 # Poetry 依赖（保留原有依赖，无变动）
 [tool.poetry.dependencies]
-python = "^3.11.4"
-qdrant-client = "^1.16.1"
+python = ">=3.13.9,<3.14"
+qdrant-client = "^1.7.1"
 uvicorn = "^0.38.0"
 fastapi = "^0.123.8"
 python-multipart = "^0.0.20"
 pydantic-settings = "^2.12.0"
-llama-index-core = ">=0.10.1,<0.10.86"
+llama-index-core = ">=0.13.0,<0.15"
 llama-index-llms-ollama = ">=0.1.11"
 llama-index-embeddings-huggingface = ">=0.1.7"
 llama-index-readers-file = ">=0.1.28"
@@ -31,7 +31,7 @@ injector = "^0.23.0"
 python-dotenv = ">=0.21.0"
 pyyaml = "^6.0.2"
 retry-async = "^0.1.4"
-llama-index-vector-stores-qdrant = "^0.1.4"
+llama-index-vector-stores-qdrant = "^0.9.0"
 
 # 构建系统（保留）
 [build-system]

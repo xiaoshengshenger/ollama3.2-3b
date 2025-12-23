@@ -25,5 +25,18 @@ const { chatList,currentView } = storeToRefs(appStore);
 
 const handleChatItemClick = (key: string) => {
   appStore.switchView(key);
+
+  console.log('')
+  if(key === 'llmModel'){
+    // 创建新对话
+    const newId = Date.now().toString();
+      const newHistory = {
+        id: newId,
+        title: "新对话",
+        icon: "fa-comments",
+        list: []
+      };
+      appStore.addHistory(newHistory);
+  }
 };
 </script>

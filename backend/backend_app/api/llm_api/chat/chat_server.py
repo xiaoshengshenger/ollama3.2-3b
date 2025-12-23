@@ -128,19 +128,22 @@ class ChatService:
                 )
                 node_postprocessors.append(rerank_postprocessor)
 
-            comtext = ContextChatEngine.from_defaults(
-                system_prompt=system_prompt,
+            chat_engine = ContextChatEngine.from_defaults(
+                system_prompt=system_prompt or "",
                 retriever=vector_index_retriever,
                 llm=self.llm_component.llm,  # Takes no effect at the moment
                 node_postprocessors=node_postprocessors,
+                streaming=True,  # 关键：启用流式响应
+                verbose=True,  # 可选：便于调试
             )
             
-            return comtext
+            return chat_engine
             
         else:
             return SimpleChatEngine.from_defaults(
-                system_prompt=system_prompt,
+                system_prompt=system_prompt or "",
                 llm=self.llm_component.llm,
+                streaming=True,
             )
 
     def stream_chat(
@@ -150,34 +153,39 @@ class ChatService:
         context_filter: ContextFilter | None = None,
     ) -> CompletionGen:
         chat_engine_input = ChatEngineInput.from_messages(messages)
+        logger.info(f"用户问题:{messages}")
         last_message = (
             chat_engine_input.last_message.content
             if chat_engine_input.last_message
-            else None
+            else ''
         )
         system_prompt = (
             chat_engine_input.system_message.content
             if chat_engine_input.system_message
-            else None
+            else ''
         )
         chat_history = (
-            chat_engine_input.chat_history if chat_engine_input.chat_history else None
+            chat_engine_input.chat_history if chat_engine_input.chat_history else []
         )
         chat_engine = self._chat_engine(
             system_prompt=system_prompt,
             use_context=use_context,
             context_filter=context_filter,
         )
-        logger.info(f"用户问题:{last_message} ----历史记录： {chat_history}")
+        logger.info(f"用户问题:{last_message} ")
+
+        if not last_message:
+            last_message = "请提供有效的问题"
+
         streaming_response = chat_engine.stream_chat(
             message=last_message if last_message is not None else "",
             chat_history=chat_history,
         )
-        logger.info(f"streaming_response:{streaming_response}")
+        #logger.info(f"streaming_response:{streaming_response}")
         sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
         completion_gen = CompletionGen(
             response=streaming_response.response_gen, sources=sources
         )
-        logger.info(f"sources:{sources}----------completion_gen：{completion_gen}")
+        #logger.info(f"sources:{sources}----------completion_gen：{completion_gen}")
         return completion_gen
 

@@ -46,17 +46,6 @@ import ChatList from './components/ChatList.vue';
 // 初始化Pinia store
 const appStore = useAppStore();
 
-// 创建新对话
-const createNewChat = () => {
-  const newId = Date.now().toString();
-  const newHistory = {
-    id: newId,
-    title: "新对话",
-    icon: "fa-comments",
-    list: []
-  };
-  appStore.addHistory(newHistory);
-};
 </script>
 
 <style scoped>

@@ -104,6 +104,7 @@ const escapeHtml = (str: string) => {
 // 发送消息
 const sendMessage = async () => {
   const history = currentHistory.value;
+  console.log('!!!!!!!',history);
   if (!messageInput.value.trim() || !currentHistory.value || isLoading.value) return;
 
   // 1. 构建用户消息
@@ -123,11 +124,11 @@ const sendMessage = async () => {
     role: 'system',
     content: ''
   };
-  // 追加空的助手消息到历史记录
-  const messageId = appStore.appendMessageToHistory(currentHistory.value.id, assistantMessage);
 
+  
   // 5. 设置加载状态
   isLoading.value = true;
+  let messageId;
 
   try {
     // 构建请求参数
@@ -144,7 +145,7 @@ const sendMessage = async () => {
       model: llmModel.value,
       messages: messages,
       stream: true,
-      use_context: false,
+      use_context: KnowledgeBaseItem.value.length > 0,
       include_sources: true,
       ...(KnowledgeBaseItem.value.length > 0 && {
         context_filter: { docs_ids: KnowledgeBaseItem.value.map(item => item.doc_id) }
@@ -161,6 +162,9 @@ const sendMessage = async () => {
       },
       body: JSON.stringify(requestBody)
     });
+
+    // 追加空的助手消息到历史记录
+    messageId = appStore.appendMessageToHistory(currentHistory.value.id, assistantMessage);
 
     if (!response.ok) {
       throw new Error(`API 响应错误: ${response.status} ${response.statusText}`);
