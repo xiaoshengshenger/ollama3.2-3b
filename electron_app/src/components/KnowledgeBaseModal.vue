@@ -28,7 +28,7 @@
           >
             <div class="flex items-center gap-3">
               <i class="fa fa-file-text-o text-blue-500"></i>
-              <span class="text-gray-800">{{ item.file_name }}</span>
+              <span class="text-gray-800">{{ item.doc_metadata.file_name }}</span>
             </div>
             <div class="flex gap-2">
               <button class="text-blue-500 hover:text-blue-700 text-sm" @click="handleEdit(item)">
@@ -85,8 +85,9 @@ const { apiUrl, KnowledgeBaseItem } = storeToRefs(appStore);
 // 定义类型
 interface KnowledgeBaseItem {
   doc_id: string;
-  file_name: string;
-  doc_metadata?: any;
+  doc_metadata: {
+    file_name: string;
+  };
 }
 
 // 定义 Props
@@ -104,7 +105,7 @@ const emit = defineEmits(['update:modelValue']);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const loading = ref(false); // 列表加载状态
 const uploading = ref(false); // 上传加载状态
-const knowledgeBaseList = reactive<KnowledgeBaseItem[]>([]); // 知识库文件列表
+let knowledgeBaseList = reactive<KnowledgeBaseItem[]>([]); // 知识库文件列表
 
 // 监听弹窗显隐：打开时加载文件列表
 watch(
@@ -131,20 +132,9 @@ const fetchFileList = async () => {
 
     // 添加所有已上传的文件
     if (result.data && Array.isArray(result.data)) {
-      result.data.forEach((doc: any) => {
-        if (doc.doc_id && doc.doc_metadata?.file_name) {
-          // 存入响应式列表
-          knowledgeBaseList.push({
-            doc_id: doc.doc_id,
-            file_name: doc.doc_metadata.file_name,
-            doc_metadata: doc.doc_metadata,
-          });
-        }
-      });
-      if (knowledgeBaseList.length > 0) {
-        // 选中状态更新todo
-        appStore.updateKnowledgeBaseItem([...knowledgeBaseList]);
-      }
+      knowledgeBaseList = result.data;
+      console.log("知识库列表：", result);
+      appStore.updateKnowledgeBaseItem([...knowledgeBaseList]);
     }
 
   } catch (error) {
@@ -214,10 +204,10 @@ const handleFileSelect = async (e: Event) => {
 const handleEdit = (item: KnowledgeBaseItem) => {
   console.log('编辑文件：', item);
   // 示例：修改文件名（可对接后端编辑接口）
-  const newFileName = prompt('请输入新的文件名', item.file_name);
+  const newFileName = prompt('请输入新的文件名', item.doc_metadata.file_name);
   if (newFileName && newFileName.trim() !== '') {
     // 此处可调用编辑接口，成功后更新列表
-    item.file_name = newFileName.trim();
+    item.doc_metadata.file_name = newFileName.trim();
   }
 };
 

@@ -63,6 +63,7 @@ class IngestService:
 
     def ingest_file(self, file_name: str, file_data: Path) -> list[IngestedDoc]:
         documents = self.ingest_component.ingest(file_name, file_data)
+        logger.info(f"生成文档：{documents}")
         return [IngestedDoc.from_document(document) for document in documents]
 
     def ingest_bin_data(
@@ -77,7 +78,7 @@ class IngestService:
         try:
             docstore = self.storage_context.docstore
             ref_docs: dict[str, RefDocInfo] | None = docstore.get_all_ref_doc_info()
-
+            logger.info(f"ref_docs:::: {ref_docs}")
             if not ref_docs:
                 return ingested_docs
 

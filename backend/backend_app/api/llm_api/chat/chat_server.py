@@ -29,6 +29,10 @@ from llama_index.core.postprocessor import (
 from llama_index.core.chat_engine import ContextChatEngine, SimpleChatEngine
 from backend_app.api.llm_api.chunks.chunks_service import Chunk
 
+from backend_app.api.llm_api.ingest.ingest_service_kg_rag import Neo4jKGRAGService 
+
+from llama_index.core.storage.index_store import SimpleIndexStore
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,11 +85,14 @@ class ChatService:
         vector_store_component: VectorStoreComponent,
         embedding_component: EmbeddingComponent,
         node_store_component: NodeStoreComponent,
+        neo4j_kg_rag_service: Neo4jKGRAGService,
     ) -> None:
         self.settings = settings()
         self.llm_component = llm_component
         self.embedding_component = embedding_component
+        self.neo4j_kg_rag_service = neo4j_kg_rag_service  # 保存KG-RAG服务实例
         self.vector_store_component = vector_store_component
+        self.node_store_component = node_store_component
         self.storage_context = StorageContext.from_defaults(
             vector_store=vector_store_component.vector_store,
             docstore=node_store_component.doc_store,
@@ -98,6 +105,30 @@ class ChatService:
             embed_model=embedding_component.embedding_model,
             show_progress=True,
         )
+
+    def clear_vector_and_node_data(self):
+        """清空向量数据库、文档存储和索引存储的所有数据（谨慎使用）"""
+        try:
+            # 2. 清空文档存储（适配SimpleDocumentStore）
+            all_ref_doc_info = self.node_store_component.doc_store.get_all_ref_doc_info()
+            all_ref_doc_ids = list(all_ref_doc_info.keys())
+            
+            # 非空判断，避免无效循环
+            if all_ref_doc_ids:
+                for doc_id in all_ref_doc_ids:
+                    self.node_store_component.doc_store.delete_ref_doc(doc_id)
+                logger.debug(f"已删除 {len(all_ref_doc_ids)} 个文档")
+            else:
+                logger.debug("无文档需要删除，跳过文档存储清空步骤")
+            
+            # 3. 清空索引存储（适配SimpleIndexStore：重新初始化 = 清空所有索引数据）
+            self.node_store_component.index_store = SimpleIndexStore()  # 关键修复：重新初始化
+
+            self.neo4j_kg_rag_service.clear_neo4j_data()
+            logger.info("✅ 成功清空向量数据库、文档存储和索引存储数据")
+        except Exception as e:
+            logger.error(f"❌ 清空数据失败：{str(e)}", exc_info=True)
+            raise
 
     def _chat_engine(
         self,
@@ -151,6 +182,10 @@ class ChatService:
         messages: list[ChatMessage],
         use_context: bool = False,
         context_filter: ContextFilter | None = None,
+        use_kg_rag: bool = False,
+        use_hybrid_rag: bool = False,
+        # KG查询配置参数
+        kg_query_kwargs: dict | None = None,
     ) -> CompletionGen:
         chat_engine_input = ChatEngineInput.from_messages(messages)
         logger.info(f"用户问题:{messages}")
@@ -174,18 +209,100 @@ class ChatService:
         )
         logger.info(f"用户问题:{last_message} ")
 
+        #self.clear_vector_and_node_data()
         if not last_message:
             last_message = "请提供有效的问题"
 
-        streaming_response = chat_engine.stream_chat(
-            message=last_message if last_message is not None else "",
-            chat_history=chat_history,
-        )
-        #logger.info(f"streaming_response:{streaming_response}")
-        sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
-        completion_gen = CompletionGen(
-            response=streaming_response.response_gen, sources=sources
-        )
-        #logger.info(f"sources:{sources}----------completion_gen：{completion_gen}")
-        return completion_gen
+        # 初始化默认参数
+        kg_kwargs = kg_query_kwargs or {}
+
+        # 分支1：使用混合RAG（向量RAG + KG-RAG）
+        if use_hybrid_rag:
+            # 执行混合查询，获取融合后的回答和来源
+            fusion_response_text, sources = self._query_hybrid_rag(
+                query_text=last_message,
+                chat_engine=chat_engine,
+                chat_history=chat_history,
+                **kg_kwargs
+            )
+            # 将完整文本转为流式TokenGen（兼容原有返回格式）
+            fusion_token_gen = (token for token in fusion_response_text)
+            return CompletionGen(response=fusion_token_gen, sources=sources)
+
+        # 分支2：使用纯KG-RAG
+        elif use_kg_rag:
+            # 执行纯KG-RAG查询
+            kg_response_text = self._query_kg_rag(last_message, **kg_kwargs)
+            # 转为流式TokenGen（兼容原有返回格式）
+            kg_token_gen = (token for token in kg_response_text)
+            return CompletionGen(response=kg_token_gen, sources=None)
+
+        # 分支3：原有逻辑（纯向量RAG / 无上下文聊天）
+        else:
+            streaming_response = chat_engine.stream_chat(
+                message=last_message if last_message is not None else "",
+                chat_history=chat_history,
+            )
+            sources = [Chunk.from_node(node) for node in streaming_response.source_nodes]
+            completion_gen = CompletionGen(
+                response=streaming_response.response_gen, sources=sources
+            )
+            return completion_gen
+    
+    def _query_kg_rag(self, query_text: str, **kwargs) -> str:
+        """
+        执行纯知识图谱RAG查询
+        :param query_text: 用户问题
+        :param kwargs: KG查询引擎配置参数（如similarity_top_k、response_mode等）
+        :return: KG-RAG回答结果
+        """
+        try:
+            # 复用已实现的neo4j_kg_rag_service.query_kg_rag方法
+            kg_response = self.neo4j_kg_rag_service.query_kg_rag(query_text, **kwargs)
+            logger.info(f"KG-RAG查询成功，问题：{query_text[:20]}...")
+            return kg_response
+        except RuntimeError as e:
+            # 捕获KG索引未构建的异常，返回提示信息（不中断整体流程）
+            logger.warning(f"KG-RAG查询失败（索引未构建）：{str(e)}")
+            return f"知识图谱索引未构建，请先上传文档后再进行相关查询。"
+        except Exception as e:
+            logger.error(f"KG-RAG查询异常：{str(e)}", exc_info=True)
+            return f"知识图谱查询出错：{str(e)}"
+
+    # 新增：融合向量RAG与KG-RAG结果（核心优化，发挥两者优势）
+    def _query_hybrid_rag(self, query_text: str, chat_engine, chat_history: list[ChatMessage], **kwargs) -> tuple[str, list[Chunk]]:
+        """
+        混合查询：向量RAG（提供上下文细节） + KG-RAG（提供关系推理）
+        :return: 融合后的回答、向量RAG来源节点
+        """
+        # 1. 执行向量RAG查询（流式响应转为完整文本）
+        vector_stream_response = chat_engine.stream_chat(message=query_text, chat_history=chat_history)
+        vector_response = "".join([token for token in vector_stream_response.response_gen])
+        vector_sources = [Chunk.from_node(node) for node in vector_stream_response.source_nodes]
+
+        # 2. 执行KG-RAG查询
+        kg_response = self._query_kg_rag(query_text, **kwargs)
+
+        # 3. 融合两者结果（通过LLM总结融合，保证回答一致性和完整性）
+        fusion_prompt = f"""
+        请你将以下两个回答融合为一个精准、简洁的最终回答，严格遵循以下要求：
+        1.  向量检索回答（提供细节上下文）：{vector_response}
+        2.  知识图谱回答（提供实体关系推理）：{kg_response}
+
+        ########### 核心规则（必须严格遵守，缺一不可）###########
+        1.  优先提取并保留知识图谱中的明确实体关系事实（如部门与负责人的对应关系），这是最高优先级
+        2.  仅保留与用户问题直接相关的信息，完全忽略无关内容（如产品功能、发布日期、人物关系推测等非用户询问内容）
+        3.  坚决删除所有冗余表述、同义改写、无依据推测（如“他们都是管理者”“可以推测与AI有关”等）
+        4.  回答格式要求：分点列出（使用数字序号），每点仅陈述一个明确事实，不添加额外修饰词
+        5.  无需补充额外背景信息，无需总结，无需过渡句，只输出用户问题对应的核心答案
+        6.  去除重复内容，保证回答简洁明了，语言精炼，无废话
+
+        用户当前问题是：{query_text}，请严格按上述规则生成回答。
+        """
+
+        # 调用LLM进行结果融合
+        fusion_response = self.llm_component.llm.complete(fusion_prompt)
+        logger.info(f"混合RAG查询融合成功，问题：{query_text}...")
+
+        return str(fusion_response), vector_sources
 

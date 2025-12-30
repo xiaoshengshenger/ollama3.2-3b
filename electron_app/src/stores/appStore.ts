@@ -20,10 +20,13 @@ export interface HistoryItem {
   list: Message[];
 }
 
+export interface doc_metadata {
+  file_name: string;
+}
+
 export interface KnowledgeBaseItem {
   doc_id: string;
-  file_name: string;
-  doc_metadata?: any;
+  doc_metadata: doc_metadata;
 }
 
 // 定义应用状态类型

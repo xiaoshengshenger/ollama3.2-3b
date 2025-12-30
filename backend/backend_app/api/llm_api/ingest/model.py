@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class IngestedDoc(BaseModel):
-    object: Literal["ingest.document"]
+    object: Literal["ingest.document","ingest.kg_document"]
     doc_id: str = Field(examples=["c202d5e6-7b69-4869-81cc-dd574ee8ee11"])
     doc_metadata: dict[str, Any] | None = Field(
         examples=[

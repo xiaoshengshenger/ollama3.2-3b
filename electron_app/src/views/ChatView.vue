@@ -90,21 +90,21 @@ const isLoading = ref(false);
 // 聊天容器引用（用于滚动到底部）
 const chatContainer = ref<HTMLDivElement | null>(null);
 
-
-// 转义HTML特殊字符（防止XSS）
+// 转义HTML特殊字符（防止XSS，已启用）
 const escapeHtml = (str: string) => {
-  return str;
-    //.replace(/&/g, '&amp;')
-    //.replace(/</g, '&lt;')
-    //.replace(/>/g, '&gt;')
-    //.replace(/"/g, '&quot;')
-    //.replace(/'/g, '&#039;');
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 };
 
 // 发送消息
 const sendMessage = async () => {
   const history = currentHistory.value;
-  console.log('!!!!!!!',history);
+  console.log('!!!!!!!', history);
   if (!messageInput.value.trim() || !currentHistory.value || isLoading.value) return;
 
   // 1. 构建用户消息
@@ -125,11 +125,11 @@ const sendMessage = async () => {
     content: ''
   };
 
-  
   // 5. 设置加载状态
   isLoading.value = true;
-  let messageId;
-
+  let messageId = '';
+  // 追加空的助手消息到历史记录
+   messageId = appStore.appendMessageToHistory(currentHistory.value.id, assistantMessage);
   try {
     // 构建请求参数
     const messages: Message[] = [];
@@ -155,16 +155,13 @@ const sendMessage = async () => {
     console.log('请求参数:', JSON.stringify(requestBody));
 
     // 发送POST请求（使用fetch而非axios，因为axios处理流式响应较复杂）
-    const response = await fetch( `${apiUrl.value}chat/completions`, {
+    const response = await fetch(`${apiUrl.value}chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
-
-    // 追加空的助手消息到历史记录
-    messageId = appStore.appendMessageToHistory(currentHistory.value.id, assistantMessage);
 
     if (!response.ok) {
       throw new Error(`API 响应错误: ${response.status} ${response.statusText}`);
@@ -180,29 +177,42 @@ const sendMessage = async () => {
 
     // 循环读取流式数据
     try {
+      let incompleteJson = ''; // 全局缓存：仅定义一次
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // 解码二进制数据
-        const chunk = decoder.decode(value);
-        // 按行分割数据（流式响应通常每行是一个数据块）
+        // 解码二进制数据（保留不完整字符）
+        const chunk = decoder.decode(value, { stream: true });
+        // 按行分割数据（过滤空行）
         const lines = chunk.split('\n').filter((line) => line.trim());
 
         for (const line of lines) {
           try {
             // 处理data: 前缀（如OpenAI的流式响应格式）
             let dataStr = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
-            // 跳过结束标记
-            if (dataStr === '[DONE]') continue;
+            // 跳过结束标记（用continue，不终止循环）
+            if (dataStr === '[DONE]') {
+              incompleteJson = '';
+              continue;
+            }
 
-            // 解析JSON数据
+            // 拼接全局缓存的不完整JSON
+            dataStr = incompleteJson + dataStr;
+            incompleteJson = ''; // 拼接后清空缓存
+
             const data = JSON.parse(dataStr);
             let newContent = '';
 
             // 兼容不同的响应格式
             if (data.choices && data.choices.length > 0) {
-              newContent = data.choices[0].delta?.content || data.choices[0].message?.content || '';
+              newContent = data.choices[0].delta?.content || '';
+              // 若收到结束标记，清空缓存并跳过当前行
+              const finishReason = data.choices[0].finish_reason;
+              if (finishReason === 'stop' || finishReason === 'completed') {
+                incompleteJson = '';
+                continue;
+              }
             } else if (data.response) {
               newContent = data.response;
             }
@@ -220,7 +230,61 @@ const sendMessage = async () => {
               });
             }
           } catch (parseError) {
-            console.warn('解析流式数据错误:', parseError, '行内容:', line);
+            if (parseError instanceof SyntaxError) {
+              incompleteJson = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
+              console.warn('缓存不完整JSON片段，待后续拼接:', incompleteJson);
+            } else {
+              console.warn('解析流式数据错误:', parseError, '行内容:', line);
+            }
+          }
+        }
+      }
+
+      // 兜底解析：最后剩余的不完整JSON片段
+      if (incompleteJson?.trim()) {
+        try {
+          const data = JSON.parse(incompleteJson);
+          let newContent = '';
+          if (data.choices && data.choices.length > 0) {
+            newContent = data.choices[0].delta?.content || data.choices[0].message?.content || '';
+          } else if (data.response) {
+            newContent = data.response;
+          }
+          if (newContent) {
+            aiContent += escapeHtml(newContent);
+            appStore.updateMessageContent(currentHistory.value.id, messageId, aiContent);
+            await nextTick();
+            chatContainer.value?.scrollTo({
+              top: chatContainer.value.scrollHeight,
+              behavior: 'smooth'
+            });
+          }
+        } catch (e) {
+          console.warn('最后剩余JSON片段解析失败（可忽略）:', e);
+        }
+      }
+
+      // 最终解码：获取最后剩余的字符
+      const finalChunk = decoder.decode();
+      if (finalChunk.trim()) {
+        const lines = finalChunk.split('\n').filter((line) => line.trim());
+        for (const line of lines) {
+          try {
+            let dataStr = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
+            if (dataStr === '[DONE]') continue;
+            const data = JSON.parse(dataStr);
+            let newContent = data.choices?.[0]?.delta?.content || '';
+            if (newContent) {
+              aiContent += escapeHtml(newContent);
+              appStore.updateMessageContent(currentHistory.value.id, messageId, aiContent);
+              await nextTick();
+              chatContainer.value?.scrollTo({
+                top: chatContainer.value.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+          } catch (e) {
+            console.warn('最终片段解析失败:', e);
           }
         }
       }
@@ -229,7 +293,6 @@ const sendMessage = async () => {
       aiContent = `❌ 流式响应读取失败：${escapeHtml(streamError.message)}`;
       appStore.updateMessageContent(currentHistory.value.id, messageId, aiContent);
     }
-    
 
     // 处理空响应
     if (!aiContent.trim()) {
@@ -242,12 +305,14 @@ const sendMessage = async () => {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     console.error('Ollama API 调用错误：', error);
-    // 更新错误消息
-    appStore.updateMessageContent(
-      currentHistory.value.id,
-      messageId,
-      `❌ 调用失败：${escapeHtml(errorMsg)}`
-    );
+    // 更新错误消息（添加非空判断）
+    if (messageId) {
+      appStore.updateMessageContent(
+        currentHistory.value.id,
+        messageId,
+        `❌ 调用失败：${escapeHtml(errorMsg)}`
+      );
+    }
   } finally {
     // 重置加载状态
     isLoading.value = false;

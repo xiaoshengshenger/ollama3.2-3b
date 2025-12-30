@@ -15,7 +15,6 @@ from backend_app.api.ingest.ingest_helper import IngestionHelper
 from backend_app.constants import get_local_data_path
 from backend_app.api.settings.settings import Settings
 
-
 class BaseIngestComponent(abc.ABC):
     def __init__(
         self,
@@ -195,10 +194,10 @@ def get_ingestion_component(
     settings: Settings,
 ) -> BaseIngestComponent:
 
-    ingest_mode = settings.embedding.ingest_mode
-    if ingest_mode == "simple":
-        return SimpleIngestComponent(
-            storage_context=storage_context,
-            embed_model=embed_model,
-            transformations=transformations,
-        )
+    #ingest_mode = settings.embedding.ingest_mode
+    #if ingest_mode == "simple":
+    return SimpleIngestComponent(
+        storage_context=storage_context,
+        embed_model=embed_model,
+        transformations=transformations,
+    )

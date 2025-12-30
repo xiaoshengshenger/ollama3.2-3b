@@ -3,6 +3,8 @@ from llama_index.core.schema import Document
 from llama_index.core.readers import StringIterableReader
 from llama_index.core.readers.base import BaseReader
 from llama_index.core.readers.json import JSONReader
+import logging
+logger = logging.getLogger(__name__)
 
 def _try_loading_included_file_formats() -> dict[str, type[BaseReader]]:
     try:
@@ -67,7 +69,7 @@ class IngestionHelper:
             document.metadata["file_name"] = file_name
         IngestionHelper._exclude_metadata(documents)
         return documents
-    
+
     @staticmethod
     def _load_file_to_documents(file_name: str, file_data: Path) -> list[Document]:
         extension = Path(file_name).suffix

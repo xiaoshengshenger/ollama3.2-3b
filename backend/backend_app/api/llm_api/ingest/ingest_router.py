@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from backend_app.api.llm_api.ingest.ingest_service import IngestService
 from backend_app.api.llm_api.ingest.model import IngestedDoc
+from backend_app.api.llm_api.ingest.ingest_service_kg_rag import Neo4jKGRAGService
 
 
 import logging
@@ -19,6 +20,7 @@ class IngestResponse(BaseModel):
     object: Literal["list"]
     model: Literal["private-gpt"]
     data: list[IngestedDoc]
+    data_kg: list[IngestedDoc]
 
 @ingest_router.post("/file")
 def ingest_file(request: Request, file: UploadFile) -> IngestResponse:
@@ -26,8 +28,14 @@ def ingest_file(request: Request, file: UploadFile) -> IngestResponse:
     service = request.state.injector.get(IngestService)
     if file.filename is None:
         raise HTTPException(400, "No file name provided")
+    #rag
     ingested_documents = service.ingest_bin_data(file.filename, file.file)
-    return IngestResponse(object="list", model="private-gpt", data=ingested_documents)
+    #kg_rag
+    kg_service = request.state.injector.get(Neo4jKGRAGService)
+    ingested_documents_kg_rag = kg_service.ingest_bin_data(file.filename, file.file)
+    logger.info(f"Ingested: {ingested_documents} --------------ingested_documents_kg_rag: {ingested_documents_kg_rag} ")
+    return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=
+                          ingested_documents_kg_rag)
 
 
 @ingest_router.get("/list")
@@ -35,4 +43,4 @@ def list_ingested(request: Request) -> IngestResponse:
 
     service = request.state.injector.get(IngestService)
     ingested_documents = service.list_ingested()
-    return IngestResponse(object="list", model="private-gpt", data=ingested_documents)
+    return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=[])

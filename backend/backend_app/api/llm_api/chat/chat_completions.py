@@ -32,13 +32,48 @@ def chat_completion(
     service = request.state.injector.get(ChatService)
     all_messages = [
         ChatMessage(content=m.content, role=MessageRole(m.role)) for m in body.messages
-    ]
+    ][:-1]
     logger.info(f"asdasdasd:: {all_messages} ---- {body.messages}")
     completion_gen = service.stream_chat(
         messages=all_messages,
         use_context=body.use_context,
+        use_hybrid_rag=True,
         context_filter=body.context_filter,
+        kg_query_kwargs={
+            "similarity_top_k": 2,
+            "embedding_mode": "hybrid"
+        }
     )
+    """
+    # 1. 原有纯向量RAG查询（无需改动，兼容原有调用）
+    completion = chat_service.stream_chat(
+        messages=user_messages,
+        use_context=True,
+        context_filter=context_filter
+    )
+
+    # 2. 纯知识图谱RAG查询（针对关系推理类问题）
+    kg_completion = chat_service.stream_chat(
+        messages=user_messages,
+        use_kg_rag=True,
+        kg_query_kwargs={
+            "similarity_top_k": 5,
+            "response_mode": "tree_summarize"
+        }
+    )
+
+    # 3. 混合RAG查询（推荐，兼顾细节与关系推理，效果最优）
+    hybrid_completion = chat_service.stream_chat(
+        messages=user_messages,
+        use_context=True,
+        use_hybrid_rag=True,
+        context_filter=context_filter,
+        kg_query_kwargs={
+            "similarity_top_k": 5,
+            "embedding_mode": "hybrid"
+        }
+    )
+    """
     logger.debug(f"asdasdasd:: {completion_gen.response} ---- {completion_gen.sources}")
     return StreamingResponse(
         to_openai_sse_stream(
