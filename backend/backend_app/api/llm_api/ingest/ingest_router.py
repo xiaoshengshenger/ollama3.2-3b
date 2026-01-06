@@ -33,7 +33,7 @@ def ingest_file(request: Request, file: UploadFile) -> IngestResponse:
     #kg_rag
     kg_service = request.state.injector.get(Neo4jKGRAGService)
     ingested_documents_kg_rag = kg_service.ingest_bin_data(file.filename, file.file)
-    logger.info(f"Ingested: {ingested_documents} --------------ingested_documents_kg_rag: {ingested_documents_kg_rag} ")
+    #logger.info(f"Ingested: {ingested_documents} --------------ingested_documents_kg_rag: {ingested_documents_kg_rag} ")
     return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=
                           ingested_documents_kg_rag)
 
@@ -42,5 +42,17 @@ def ingest_file(request: Request, file: UploadFile) -> IngestResponse:
 def list_ingested(request: Request) -> IngestResponse:
 
     service = request.state.injector.get(IngestService)
+    #rag
     ingested_documents = service.list_ingested()
-    return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=[])
+    #kg_rag
+    kg_service = request.state.injector.get(Neo4jKGRAGService)
+    ingested_documents_kg_rag = kg_service.list_ingested_kg_docs()
+    logger.info(f"向量数据库: {ingested_documents} --------------知识图谱: {ingested_documents_kg_rag} ")
+    return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=ingested_documents_kg_rag)
+
+
+@ingest_router.delete("/{doc_id}")
+def delete_ingested(request: Request, doc_id: str) -> None:
+    
+    service = request.state.injector.get(IngestService)
+    service.delete(doc_id) 

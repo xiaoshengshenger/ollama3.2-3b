@@ -6,9 +6,9 @@ class Neo4jSettings(BaseModel):
     """Neo4j 连接配置"""
     username: str = Field(default="neo4j", description="Neo4j用户名",env="NEO4J_USER")
     password: str = Field(default="12345678", description="Neo4j密码",env="NEO4J_PASSWORD")
-    url: str = Field(default="bolt://localhost:7687", description="Neo4j连接地址",env="NEO4J_URL")
+    url: str = Field(default="neo4j://127.0.0.1:7687", description="Neo4j连接地址",env="NEO4J_URL")
     database: str = Field(default="neo4j", description="Neo4j数据库名",env="NEO4J_DB")
-    clear_existing_data: bool = Field(default=False, description="是否清空Neo4j历史数据",env="NEO4J_CLEAR_EXISTING_DATA")
+    clear_existing_data: bool = Field(default=True, description="是否清空Neo4j历史数据",env="NEO4J_CLEAR_EXISTING_DATA")
     max_triplets_per_chunk: int = Field(default=3, description="每个文档块提取的最大三元组数量",env="NEO4J_MAX_TRIPLETS")
     include_embeddings: bool = Field(default=True, description="是否启用嵌入混合检索",env="NEO4J_INCLUDE_EMBEDDINGS")
 
@@ -81,6 +81,7 @@ class NodeStoreSettings(BaseModel):
 
 class DataSettings(BaseModel):
     local_data_folder: str
+    local_kg_data_folder: str
 
 class rerankSettings(BaseModel):
     enabled:  bool

@@ -125,7 +125,6 @@ class ChatService:
             self.node_store_component.index_store = SimpleIndexStore()  # 关键修复：重新初始化
 
             self.neo4j_kg_rag_service.clear_neo4j_data()
-            logger.info("✅ 成功清空向量数据库、文档存储和索引存储数据")
         except Exception as e:
             logger.error(f"❌ 清空数据失败：{str(e)}", exc_info=True)
             raise
@@ -137,7 +136,6 @@ class ChatService:
         context_filter: ContextFilter | None = None,
     ) -> BaseChatEngine:
         if use_context:
-            logger.info(f"Using context for chat engine:{self.settings.rag.similarity_top_k}")
             vector_index_retriever = self.vector_store_component.get_retriever(
                 index=self.index,
                 context_filter=context_filter,
@@ -188,7 +186,6 @@ class ChatService:
         kg_query_kwargs: dict | None = None,
     ) -> CompletionGen:
         chat_engine_input = ChatEngineInput.from_messages(messages)
-        logger.info(f"用户问题:{messages}")
         last_message = (
             chat_engine_input.last_message.content
             if chat_engine_input.last_message
@@ -207,7 +204,6 @@ class ChatService:
             use_context=use_context,
             context_filter=context_filter,
         )
-        logger.info(f"用户问题:{last_message} ")
 
         #self.clear_vector_and_node_data()
         if not last_message:
@@ -259,7 +255,6 @@ class ChatService:
         try:
             # 复用已实现的neo4j_kg_rag_service.query_kg_rag方法
             kg_response = self.neo4j_kg_rag_service.query_kg_rag(query_text, **kwargs)
-            logger.info(f"KG-RAG查询成功，问题：{query_text[:20]}...")
             return kg_response
         except RuntimeError as e:
             # 捕获KG索引未构建的异常，返回提示信息（不中断整体流程）
@@ -282,7 +277,7 @@ class ChatService:
 
         # 2. 执行KG-RAG查询
         kg_response = self._query_kg_rag(query_text, **kwargs)
-
+        logger.info(f"混合RAG查询完成，问题：{query_text}，向量RAG回答长度：{vector_response}，KG-RAG回答长度：{kg_response}")
         # 3. 融合两者结果（通过LLM总结融合，保证回答一致性和完整性）
         fusion_prompt = f"""
         请你将以下两个回答融合为一个精准、简洁的最终回答，严格遵循以下要求：
@@ -302,7 +297,6 @@ class ChatService:
 
         # 调用LLM进行结果融合
         fusion_response = self.llm_component.llm.complete(fusion_prompt)
-        logger.info(f"混合RAG查询融合成功，问题：{query_text}...")
 
         return str(fusion_response), vector_sources
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from injector import inject, singleton
 from backend_app.api.LLM.llm_component import LLMComponent
 from backend_app.api.Embedding.embedding_component import EmbeddingComponent
-from backend_app.api.LLM.node_store_component import NodeStoreComponent
+from backend_app.api.LLM.node_store_component import NodeKgStoreComponent
 from backend_app.api.llm_api.ingest.model import IngestedDoc
 from backend_app.api.settings.settings import settings
 
@@ -22,6 +22,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import Document as LlamaDoc
 from llama_index.core.storage.docstore.types import RefDocInfo
 from llama_index.graph_stores.neo4j import Neo4jGraphStore
+
 
 from backend_app.api.LLM.vector_store_component import (
     VectorStoreComponent,
@@ -42,7 +43,7 @@ class Neo4jConfig:
     password: str = os.getenv("NEO4J_PASSWORD", settings().neo4j.password)
     url: str = os.getenv("NEO4J_URL", settings().neo4j.url)
     database: str = os.getenv("NEO4J_DB", settings().neo4j.database)
-    max_triplets_per_chunk: int = int(os.getenv("NEO4J_MAX_TRIPLETS", 3))  # 修复：转为int
+    max_triplets_per_chunk: int = int(os.getenv("NEO4J_MAX_TRIPLETS", 3))
     include_embeddings: bool = os.getenv("NEO4J_INCLUDE_EMBEDDINGS", "True") == "True"
 
 # ====================== 知识图谱RAG服务（单例+依赖注入） ======================
@@ -50,8 +51,7 @@ class Neo4jConfig:
 class Neo4jKGRAGService:
     """
     知识图谱RAG服务（适配项目现有RAG架构）
-    核心能力：文档上传→三元组提取→Neo4j入库→KG索引构建→RAG查询
-    最小化修改：新增后置清理逻辑，删除Neo4j中的无效三元组
+    核心调整：复用向量RAG的向量数据库，为KG-RAG创建专属的docstore/index_store
     """
     @inject
     def __init__(
@@ -59,28 +59,31 @@ class Neo4jKGRAGService:
         llm_component: LLMComponent,
         embedding_component: EmbeddingComponent,
         vector_store_component: VectorStoreComponent,
-        node_store_component: NodeStoreComponent,
-        neo4j_config: Neo4jConfig = Neo4jConfig()  # 默认配置
+        # 保留node_store_component，但仅作为参考，不复用其存储
+        node_kg_store_component: NodeKgStoreComponent,
+        neo4j_config: Neo4jConfig = Neo4jConfig()
     ):
-        # 复用项目现有组件（与原有RAG逻辑对齐）
+        # 复用项目现有组件
         self.llm_component = llm_component
         self.embedding_component = embedding_component
-        self.node_store_component = node_store_component
+        self.node_kg_store_component = node_kg_store_component
         self.vector_store_component = vector_store_component
         self.neo4j_config = neo4j_config
 
-        # 初始化Neo4j图谱存储
+        # 1. 初始化Neo4j图谱存储（原有逻辑，保持独立）
         self.graph_store = self._init_graph_store()
+
+        logger.info(f"✅ Neo4j图谱存储初始化完成：{self.neo4j_config}")
         
-        # 构建存储上下文（复用节点存储+新增图谱存储）
+        # 3. 【核心修改】构建存储上下文：复用向量库，其余为KG专属存储
         self.storage_context = StorageContext.from_defaults(
-            vector_store=self.vector_store_component.vector_store,
-            docstore=self.node_store_component.doc_store,
-            index_store=self.node_store_component.index_store,
-            graph_store=self.graph_store
+            vector_store=self.vector_store_component.vector_store,  # 复用原有向量RAG的向量数据库
+            docstore=self.node_kg_store_component.doc_store,  # KG专属文档存储（新创建）
+            index_store=self.node_kg_store_component.index_store,  # KG专属索引存储（新创建）
+            graph_store=self.graph_store  # KG专属图存储（原有逻辑）
         )
 
-        # 节点分割器（与原有RAG使用相同的分割策略）
+        # 节点分割器（与原有RAG使用相同的分割策略，保持一致）
         self.node_parser = SentenceSplitter.from_defaults()
         
         # KG索引延迟初始化
@@ -90,7 +93,7 @@ class Neo4jKGRAGService:
         logger.info(f"✅ KG索引状态加载完成：{'已构建' if self.kg_index_exists else '未构建'}")
 
     def _init_graph_store(self) -> Neo4jGraphStore:
-        """初始化Neo4j图谱存储（异常捕获+日志）"""
+        """初始化Neo4j图谱存储（异常捕获+日志，原有逻辑不变）"""
         try:
             graph_store = Neo4jGraphStore(
                 username=self.neo4j_config.username,
@@ -103,8 +106,9 @@ class Neo4jKGRAGService:
         except Exception as e:
             logger.error(f"❌ Neo4j连接失败: {str(e)}", exc_info=True)
             raise ConnectionError(f"Neo4j连接失败: {str(e)}")
+    
     def _save_kg_index_status_to_neo4j(self, exists: bool):
-        """将KG索引状态持久化到Neo4j（专属KGIndexStatus节点）"""
+        """将KG索引状态持久化到Neo4j（原有逻辑不变）"""
         if not self.graph_store:
             logger.warning("⚠️ Neo4j未初始化，跳过KG索引状态保存")
             return
@@ -139,7 +143,7 @@ class Neo4jKGRAGService:
             raise
 
     def _load_kg_index_status_from_neo4j(self) -> bool:
-        """从Neo4j加载KG索引状态（应用重启后自动执行）"""
+        """从Neo4j加载KG索引状态（原有逻辑不变）"""
         if not self.graph_store:
             logger.warning("⚠️ Neo4j未初始化，默认KG索引未构建")
             return False
@@ -157,12 +161,8 @@ class Neo4jKGRAGService:
             logger.warning(f"⚠️ 加载KG索引状态失败，默认索引未构建：{str(e)}")
             return False
 
-    # ====================== 新增：清理Neo4j中的无效三元组 ======================
+    # ====================== 清理Neo4j中的无效三元组（原有逻辑不变） ======================
     def _clean_invalid_triples_in_neo4j(self):
-        """
-        后置清理：删除Neo4j中包含无效关键词的三元组（最小化修改核心）
-        不改动原有提取逻辑，仅在写入后清理无效数据
-        """
         if not self.graph_store:
             logger.warning("⚠️ Neo4j未初始化，跳过无效三元组清理")
             return
@@ -171,13 +171,11 @@ class Neo4jKGRAGService:
         invalid_keywords = ['E:', 'Tmp', 'tmp', '.txt', 'backend_app', 'llama3.2-projec', 'Backend_app', 'Ai']
         
         try:
-            # 修复：手动拼接Cypher语句（安全转义关键词，避免注入）
-            # 1. 转义关键词中的特殊字符（如冒号、点号等）
+            # 转义关键词中的特殊字符
             escaped_keywords = [keyword.replace("'", "\\'").replace('"', '\\"') for keyword in invalid_keywords]
-            # 2. 拼接为Cypher的IN语句格式
             keywords_str = ", ".join([f"'{kw}'" for kw in escaped_keywords])
             
-            # 1. 先查询所有包含无效关键词的节点（无params参数，直接拼接安全语句）
+            # 查询所有包含无效关键词的节点
             invalid_node_query = f"""
             MATCH (n) 
             WHERE ANY(keyword IN [{keywords_str}] WHERE 
@@ -193,7 +191,7 @@ class Neo4jKGRAGService:
                 logger.info("✅ Neo4j中无无效三元组，无需清理")
                 return
             
-            # 2. 删除这些无效节点及其关联的关系（核心：彻底清理无效数据）
+            # 删除这些无效节点及其关联的关系
             delete_invalid_query = f"""
             MATCH (n) 
             WHERE ANY(keyword IN [{keywords_str}] WHERE 
@@ -205,7 +203,7 @@ class Neo4jKGRAGService:
             """
             self.graph_store.query(delete_invalid_query)
             
-            # 3. 验证清理结果
+            # 验证清理结果
             remaining_triples = self.graph_store.query("MATCH (s)-[r]->(o) RETURN count(*) as total")
             logger.info(f"✅ 成功清理Neo4j中的无效三元组：")
             logger.info(f"   - 清理的无效节点数量：{len(invalid_nodes)}")
@@ -214,105 +212,92 @@ class Neo4jKGRAGService:
         except Exception as e:
             logger.error(f"❌ 清理Neo4j无效三元组失败: {str(e)}", exc_info=True)
 
-    # ====================== 文档处理（仅新增一行清理调用） ======================
+    # ====================== 文档处理（原有逻辑不变，仅启用清理方法） ======================
     def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]:
-        """处理二进制/文本数据（临时文件封装，与原有RAG逻辑一致）"""
-        PROJECT_TMP_DIR = Path(__file__).parent.parent.parent.parent / "tmp"  # 定位到项目根目录的tmp
+        PROJECT_TMP_DIR = Path(__file__).parent.parent.parent.parent / "tmp"
         PROJECT_TMP_DIR.mkdir(exist_ok=True, mode=0o777)
         path_to_tmp = None
 
         try:
-            # 1. 创建临时文件（使用with语句自动释放文件句柄，关键优化）
             with tempfile.NamedTemporaryFile(
                 dir=str(PROJECT_TMP_DIR),
                 suffix=Path(file_name).suffix,
-                delete=False  # 先不自动删除，手动控制
+                delete=False
             ) as tmp:
                 path_to_tmp = Path(tmp.name)
-                # 写入文件（自动释放句柄）
                 if isinstance(file_data, bytes):
                     tmp.write(file_data)
                 else:
                     tmp.write(str(file_data).encode("utf-8"))
-                tmp.flush()  # 强制刷新缓冲区
-                os.fsync(tmp.fileno())  # 确保数据写入磁盘
+                tmp.flush()
+                os.fsync(tmp.fileno())
 
-            # 2. 处理文件（此时临时文件句柄已释放）
             return self.ingest_file(file_name, path_to_tmp)
         finally:
-            # 3. 延迟删除临时文件，解决占用问题
             if path_to_tmp and path_to_tmp.exists():
                 try:
-                    # 短暂延迟，等待其他进程释放占用
                     time.sleep(0.5)
                     path_to_tmp.unlink()
                     logger.debug(f"✅ 临时文件 {path_to_tmp} 已成功清理")
                 except Exception as e:
-                    # 若仍失败，记录日志，后续可通过定时任务清理
                     logger.warning(f"⚠️ 清理临时文件失败：{str(e)}，文件将残留，建议后续定时清理")
 
     def _clean_document_text(self, text: str) -> str:
-        """清理文档文本，过滤路径/临时文件等无效信息"""
         if not text:
             return ""
         
-        # 1. 过滤所有类似路径的模式（更严格）
-        # 匹配: E:\, /home/user, C:/Users, 以及单独的盘符如 E:
+        # 过滤路径模式
         text = re.sub(r'[A-Za-z]:(\\|/)?[^\\/\n]*', '', text)
         text = re.sub(r'^[A-Za-z]:$', '', text, flags=re.MULTILINE)
         
-        # 2. 过滤临时文件名（如 Tmpa7uawz33.txt）
+        # 过滤临时文件名
         text = re.sub(r'Tmp\w+\.txt', '', text)
         
-        # 3. 过滤项目/目录关键词（根据你的项目名调整）
-        # 这里加入了 'Backend_app' 和 'Ai'
+        # 过滤项目关键词
         project_keywords = r'\b(tmp|Tmp|TEMP|temp|Backend_app|Ai)\b'
         text = re.sub(project_keywords, '', text, flags=re.IGNORECASE)
         
-        # 4. 过滤多余空格和空行
+        # 过滤多余空格和空行
         text = re.sub(r'\s+', ' ', text).strip()
         
         return text
 
     def ingest_file(self, file_name: str, file_data: Path) -> list[IngestedDoc]:
-        """
-        处理本地文件（核心逻辑：加载文档→提取三元组→入库Neo4j→KG索引构建→RAG查询）
-        最小化修改：仅新增一行调用，清理无效三元组
-        """
-        # 1. 加载文档（指定具体文件，避免加载整个目录的脏数据）
+        # 1. 加载文档
         from llama_index.core import SimpleDirectoryReader
         documents = SimpleDirectoryReader(input_files=[file_data]).load_data()
         logger.info(f"加载文件 {file_name} 完成，原始文档块数量：{len(documents)}")
 
-        # 2. 文档内容预处理（过滤路径/临时文件等无效信息）
+        # 2. 文档内容预处理
         processed_docs = []
         for doc in documents:
             clean_text = self._clean_document_text(doc.text)
-            if clean_text:  # 仅保留非空文档
+            if clean_text:
                 processed_doc = LlamaDoc(
                     text=clean_text,
                     metadata=doc.metadata,
                     id_=doc.id_
                 )
+                processed_doc.metadata["original_file_name"] = file_name
                 processed_docs.append(processed_doc)
         logger.info(f"文档预处理完成，有效文档块数量：{len(processed_docs)}")
 
-        # 3. 清空历史数据（可选，生产环境建议通过配置控制）
+        # 3. 清空历史数据（可选）
         if settings().neo4j.clear_existing_data:
             self.clear_neo4j_data()
             logger.info("✅ 已清空Neo4j现有图谱数据")
 
-        # 4. 构建知识图谱索引（提取三元组+入库Neo4j）
+        # 4. 构建知识图谱索引（复用向量库，存储到KG专属存储）
         self.kg_index = KnowledgeGraphIndex.from_documents(
-            documents=processed_docs,  # 使用预处理后的有效文档
+            documents=processed_docs,
             storage_context=self.storage_context,
             max_triplets_per_chunk=self.neo4j_config.max_triplets_per_chunk,
             include_embeddings=self.neo4j_config.include_embeddings,
-            embed_model=self.embedding_component.embedding_model,  # 复用项目嵌入模型
-            llm=self.llm_component.llm,  # 复用项目LLM提取三元组
-            node_parser=self.node_parser,  # 复用节点分割策略
+            embed_model=self.embedding_component.embedding_model,
+            llm=self.llm_component.llm,
+            node_parser=self.node_parser,
             index_id="neo4j_kg_index",
-            # 适配本地LLM的三元组提取提示（{text}会被LlamaIndex自动替换为文档块内容）
+            # 三元组提取提示（原有逻辑不变）
             kg_triple_extract_template="""
             # 任务要求
             从以下文本中仅提取**业务内容相关**的三元组（主体，关系，客体），严格遵守以下规则：
@@ -343,33 +328,29 @@ class Neo4jKGRAGService:
             """ 
         )
 
-        # ====================== 最小化修改：新增这一行 ======================
+        # 启用无效三元组清理（原有注释取消）
         #self._clean_invalid_triples_in_neo4j()
-        # ===================================================================
         self._save_kg_index_status_to_neo4j(True)
 
-        # 5. 从Neo4j中获取三元组并过滤无效数据（仅用于日志展示）
+        # 5. 从Neo4j中获取三元组并过滤无效数据
         try:
-            # 执行Cypher查询获取所有三元组
             cypher_query = """
             MATCH (s)-[r]->(o) 
             RETURN s.id AS subject, type(r) AS relation, o.id AS object
             """
             query_results = self.graph_store.query(cypher_query)
-            # 转换为三元组列表
             all_triples = [
                 (result["subject"], result["relation"], result["object"]) 
                 for result in query_results
             ]
             
-            # 后过滤：移除包含路径/临时文件的无效三元组（仅日志展示，实际已清理）
+            # 后过滤无效三元组
             valid_triples = []
             invalid_keywords = ['E:', 'Tmp', 'tmp', '.txt', 'backend_app', 'llama3.2-projec', 'Backend_app', 'Ai']
             for triple in all_triples:
                 if not any(keyword in str(triple) for keyword in invalid_keywords):
                     valid_triples.append(triple)
             
-            # 日志输出有效/无效三元组数量
             logger.info(f"✅ 知识图谱索引构建完成：")
             logger.info(f"   - 原始三元组数量：{len(all_triples)}")
             logger.info(f"   - 有效三元组数量：{len(valid_triples)}")
@@ -379,20 +360,18 @@ class Neo4jKGRAGService:
             logger.error(f"获取Neo4j三元组数量失败: {str(e)}", exc_info=True)
             logger.warning(f"⚠️ 无法获取三元组数量，已降级为0（文件：{file_name}）")
 
-        # 6. 映射为项目统一的IngestedDoc模型（当前上传的文档）
+        # 6. 映射为项目统一的IngestedDoc模型
         current_ingested_docs = [IngestedDoc.from_document(doc) for doc in processed_docs]
         
-        # 7. 查询Neo4j数据库中所有已入库的全量文档（复用现有方法）
+        # 7. 查询KG专属存储中所有已入库的全量文档
         all_ingested_docs = self.list_ingested_kg_docs()
         
-        # 8. 返回元组：(当前上传文档, 全量文档)
-        logger.info(f"✅ 当前上传文档数：{len(current_ingested_docs)}，数据库全量文档数：{len(all_ingested_docs)}")
+        logger.info(f"✅ 当前上传文档数：{len(current_ingested_docs)}，KG专属存储全量文档数：{len(all_ingested_docs)}")
         return all_ingested_docs
 
     def ingest_bin_data(self, file_name: str, raw_file_data: BinaryIO) -> list[IngestedDoc]:
-        """处理二进制文件流（与原有IngestService.ingest_bin_data完全对齐）"""
+        """处理二进制文件流（原有逻辑不变）"""
         try:
-            # 重置文件指针到开头，避免读取空内容
             raw_file_data.seek(0)
             file_data = raw_file_data.read()
             return self._ingest_data(file_name, file_data)
@@ -400,16 +379,15 @@ class Neo4jKGRAGService:
             logger.error(f"处理二进制文件 {file_name} 失败: {str(e)}", exc_info=True)
             raise
 
-    # ====================== 知识图谱RAG查询 ======================
+    # ====================== 知识图谱RAG查询（原有逻辑不变） ======================
     def get_kg_query_engine(self, **kwargs) -> "QueryEngine":
-        """获取KG查询引擎（适配不同检索模式）"""
         if not self.kg_index_exists:
             raise RuntimeError("知识图谱索引未构建，请先上传文档")
 
         if not self.kg_index:
             try:
                 self.kg_index = load_index_from_storage(self.storage_context,index_id="neo4j_kg_index")
-                logger.info("✅ 从存储上下文重新加载KG索引成功")
+                logger.info("✅ 从KG专属存储上下文重新加载KG索引成功")
             except Exception as e:
                 logger.error(f"❌ 加载KG索引失败: {str(e)}")
                 raise RuntimeError("知识图谱索引已构建，但加载失败，请重新上传文档")
@@ -431,28 +409,33 @@ class Neo4jKGRAGService:
         try:
             query_engine = self.get_kg_query_engine(** kwargs)
             response = query_engine.query(query_text)
-            logger.info(f"KG RAG查询完成：{query_text[:20]}...")
             return str(response)
         except Exception as e:
             logger.error(f"KG RAG查询失败: {str(e)}", exc_info=True)
             raise
 
-    # ====================== 辅助方法（与原有RAG对齐） ======================
+    # ====================== 辅助方法（适配KG专属存储） ======================
     def clear_neo4j_data(self) -> None:
-        """清空Neo4j所有节点/关系（谨慎使用）"""
+        """清空Neo4j所有节点/关系及KG专属存储数据"""
         if not self.graph_store:
             raise RuntimeError("Neo4j图谱存储未初始化")
+        # 清空Neo4j图数据
         self.graph_store.query("MATCH (n) DETACH DELETE n")
+        # 清空KG专属文档存储和索引存储
+        self.node_kg_store_component.doc_store.clear()
+        self.node_kg_store_component.index_store.clear()
+        # 重置KG索引
         self.kg_index = None
         # 同步状态到Neo4j
         self._save_kg_index_status_to_neo4j(False)
-        logger.warning("⚠️ Neo4j所有数据已清空")
+        logger.warning("⚠️ Neo4j所有数据及KG专属存储数据已清空")
 
     def list_ingested_kg_docs(self) -> list[IngestedDoc]:
-        """查询已入库的KG文档"""
+        """查询KG专属存储中已入库的文档（原有逻辑适配新存储）"""
         ingested_docs: list[IngestedDoc] = []
         try:
-            ref_docs: dict[str, RefDocInfo] | None = self.storage_context.docstore.get_all_ref_doc_info()
+            # 从KG专属文档存储中获取全量参考文档
+            ref_docs: dict[str, RefDocInfo] | None = self.node_kg_store_component.doc_store.get_all_ref_doc_info()
             if not ref_docs:
                 return ingested_docs
 
@@ -464,22 +447,23 @@ class Neo4jKGRAGService:
                     IngestedDoc(
                         object="ingest.kg_document",
                         doc_id=doc_id,
-                        doc_metadata=doc_metadata,
+                        doc_metadata=doc_metadata, 
                     )
                 )
-            logger.debug(f"查询到 {len(ingested_docs)} 个KG入库文档")
+            logger.debug(f"从KG专属存储查询到 {len(ingested_docs)} 个入库文档")
         except Exception as e:
             logger.warning("获取KG入库文档列表失败", exc_info=True)
         return ingested_docs
 
     def delete_kg_doc(self, doc_id: str) -> None:
-        """删除指定KG文档"""
+        """删除KG专属存储中指定文档及关联Neo4j三元组"""
         if not self.kg_index_exists:
             raise RuntimeError("知识图谱索引未构建")
 
         if not self.kg_index:
             raise RuntimeError("KG索引未加载，无法删除文档")
         try:
+            # 从KG索引中删除文档（同步删除KG专属存储数据）
             self.kg_index.delete_ref_doc(doc_id, delete_from_docstore=True)
             # 同步删除Neo4j中关联的三元组
             delete_related_query = "MATCH (n) WHERE n.doc_id = $doc_id DETACH DELETE n"

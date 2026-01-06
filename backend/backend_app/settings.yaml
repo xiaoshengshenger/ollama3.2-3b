@@ -44,7 +44,7 @@ nodestore:
 
 data:
   local_data_folder: local_data/ollama3
-
+  local_kg_data_folder: local_kg_data/ollama3
 rag:
   similarity_top_k: 2
   similarity_value: 0.45

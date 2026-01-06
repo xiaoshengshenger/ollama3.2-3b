@@ -47,6 +47,8 @@ class IngestService:
             transformations=[node_parser, embedding_component.embedding_model],
             settings=settings(),
         )
+        #logger.info(f"~~~~~~~~~~~~:{node_store_component.index_store}------{node_store_component.doc_store}------{vector_store_component.vector_store}")
+        #self.delete_all_ingested_data()
 
     def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]:
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -98,4 +100,63 @@ class IngestService:
             pass
         logger.debug("Found count=%s ingested documents", len(ingested_docs))
         return ingested_docs
+    
+    # 新增：删除全部数据的核心方法
+    def delete_all_ingested_data(self) -> None:
+        """
+        修复版：移除冗余逻辑，仅通过 delete_ref_doc 彻底清理 DocStore
+        利用 delete_ref_doc 级联删除能力，避免关联关系破坏导致的清理失败
+        """
+        try:
+            # 1. 清空向量存储（原有逻辑保留）
+            vector_store = self.storage_context.vector_store
+            vector_store.clear()
+            logger.info("✅ 向量存储全量数据已清空")
 
+            # 2. 清空文档存储（核心修复：移除 delete_document，仅用 delete_ref_doc）
+            doc_store = self.storage_context.docstore
+            # 先获取所有参考文档（一次性获取，避免遍历中修改存储导致的异常）
+            ref_docs = doc_store.get_all_ref_doc_info()
+            deleted_ref_doc_count = 0
+
+            if ref_docs and len(ref_docs) > 0:
+                # 转换为列表遍历，避免字典遍历中修改（部分 doc_store 实现不支持遍历中删除）
+                ref_doc_id_list = list(ref_docs.keys())
+                for ref_doc_id in ref_doc_id_list:
+                    try:
+                        # 仅这一行即可：删除参考文档 + 级联删除关联节点文档
+                        doc_store.delete_ref_doc(ref_doc_id)
+                        deleted_ref_doc_count += 1
+                    except Exception as doc_e:
+                        logger.warning(f"⚠️ 单个参考文档 {ref_doc_id} 删除失败：{str(doc_e)}，继续清理下一个")
+                        continue
+            logger.info(f"✅ 文档存储全量数据已清空：共删除 {deleted_ref_doc_count} 个参考文档（含级联删除关联节点）")
+
+            # 3. 清空索引存储（原有逻辑保留）
+            index_store = self.storage_context.index_store
+            index_structs_list = index_store.index_structs()
+            deleted_index_count = 0
+            if index_structs_list:
+                for index_struct in index_structs_list:
+                    index_store.delete_index_struct(index_struct.index_id)
+                    deleted_index_count += 1
+            logger.info(f"✅ 索引存储全量数据已清空，共删除 {deleted_index_count} 个索引")
+
+            # 4. 新增：强制刷新 DocStore（解决缓存未更新问题）
+            if hasattr(doc_store, 'persist'):
+                # 若 doc_store 支持持久化（如 SimpleDocumentStore），强制持久化清理结果
+                doc_store.persist()
+            if hasattr(doc_store, 'refresh'):
+                # 若 doc_store 支持刷新，强制刷新缓存
+                doc_store.refresh()
+            logger.info("✅ DocStore 清理结果已强制持久化/刷新")
+
+        except Exception as e:
+            logger.error("❌ 删除全量摄入数据失败", exc_info=True)
+            raise e
+        
+    def delete(self, doc_id: str) -> None:
+        logger.info(
+            "Deleting the ingested document=%s in the doc and index store", doc_id
+        )
+        self.ingest_component.delete(doc_id)

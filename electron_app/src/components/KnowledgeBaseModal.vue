@@ -218,7 +218,7 @@ const handleDelete = async (docId: string) => {
   }
 
   try {
-    const response = await fetch(`${apiUrl}/ingest/delete/${docId}`, {
+    const response = await fetch(`${apiUrl.value}ingest/${docId}`, {
       method: 'DELETE',
     });
 
