@@ -20,7 +20,6 @@
 import { useAppStore } from '../stores/appStore';
 import { storeToRefs } from 'pinia';
 import useCode from '../hook/useCode';
-import { CodeValidateResult } from '../types/index';
 
 const appStore = useAppStore();
 const { chatList,currentView,code } = storeToRefs(appStore);
@@ -28,7 +27,7 @@ const { validateCode } = useCode();
 const handleChatItemClick = async (key: string) => {
   if(key !== 'llmModel'){
       const result = await validateCode(code.value);
-      if (result.package === "free") {
+      if (!result.is_valid || result.package_name === "free") {
         alert('请激活会员码以使用功能');
         return;
       }
@@ -36,7 +35,6 @@ const handleChatItemClick = async (key: string) => {
 
   appStore.switchView(key);
 
-  console.log('')
   if(key === 'llmModel'){
     // 创建新对话
     const newId = Date.now().toString();

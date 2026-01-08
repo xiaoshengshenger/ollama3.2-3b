@@ -111,6 +111,9 @@ export const useAppStore = defineStore('app', {
     updateKnowledgeBaseItem(items: KnowledgeBaseItem[]) {
       this.KnowledgeBaseItem = items;
     },
+    updateCode(newCode: string) {
+      this.code = newCode;
+    },
     // 添加新的历史记录
     addHistory(history: HistoryItem) {
       this.historyList.unshift(history);
