@@ -33,7 +33,7 @@ def chat_completion(
     all_messages = [
         ChatMessage(content=m.content, role=MessageRole(m.role)) for m in body.messages
     ][:-1]
-    logger.info(f"asdasdasd:: {all_messages} ---- {body.messages}")
+    #logger.info(f"asdasdasd:: {all_messages} ---- {body.messages}")
     completion_gen = service.stream_chat(
         messages=all_messages,
         use_context=body.use_context,
@@ -74,8 +74,8 @@ def chat_completion(
         }
     )
     """
-    logger.debug(f"asdasdasd:: {completion_gen.response} ---- {completion_gen.sources}")
-    return StreamingResponse(
+    #logger.debug(f"asdasdasd:: {completion_gen.response} ---- {completion_gen.sources}")
+    return StreamingResponse( 
         to_openai_sse_stream(
             completion_gen.response,
             completion_gen.sources if body.include_sources else None,

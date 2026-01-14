@@ -52,7 +52,7 @@ class LLMComponent:
 
                 if ollama_settings.autopull_models:
                     from backend_app.api.utils.pull_ollama_model import check_connection, pull_model
-
+                    
                     if not check_connection(llm.client):
                         raise ValueError(
                             f"Failed to connect to Ollama, "

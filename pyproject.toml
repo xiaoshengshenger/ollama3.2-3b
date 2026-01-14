@@ -35,6 +35,7 @@ llama-index-vector-stores-qdrant = "^0.9.0"
 llama-index-graph-stores-neo4j = "^0.5.1"
 neo4j = "==5.26.0"
 cryptography = "==46.0.3"
+redis = "^7.1.0"
 
 # 构建系统（保留）
 [build-system]

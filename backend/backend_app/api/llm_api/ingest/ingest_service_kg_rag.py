@@ -69,7 +69,7 @@ class Neo4jKGRAGService:
         self.node_kg_store_component = node_kg_store_component
         self.vector_store_component = vector_store_component
         self.neo4j_config = neo4j_config
-
+        self.KG_INDEX_ID = "neo4j_kg_index"
         # 1. 初始化Neo4j图谱存储（原有逻辑，保持独立）
         self.graph_store = self._init_graph_store()
 
@@ -124,7 +124,8 @@ class Neo4jKGRAGService:
                 exists: $exists,
                 update_time: $update_time,
                 node_desc: "KG索引状态标记节点，请勿手动删除",
-                database: $database
+                database: $database,
+                index_id: $index_id
             })
             """
             self.graph_store.query(
@@ -132,7 +133,8 @@ class Neo4jKGRAGService:
                 {
                     "exists": exists,
                     "update_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "database": self.neo4j_config.database
+                    "database": self.neo4j_config.database,
+                    "index_id": self.KG_INDEX_ID
                 }
             )
             
@@ -296,7 +298,7 @@ class Neo4jKGRAGService:
             embed_model=self.embedding_component.embedding_model,
             llm=self.llm_component.llm,
             node_parser=self.node_parser,
-            index_id="neo4j_kg_index",
+            index_id=self.KG_INDEX_ID,
             # 三元组提取提示（原有逻辑不变）
             kg_triple_extract_template="""
             # 任务要求
@@ -327,11 +329,12 @@ class Neo4jKGRAGService:
             {text}
             """ 
         )
-
+        self.kg_index.storage_context = self.storage_context
+        self.kg_index.persist()
         # 启用无效三元组清理（原有注释取消）
         #self._clean_invalid_triples_in_neo4j()
         self._save_kg_index_status_to_neo4j(True)
-
+        
         # 5. 从Neo4j中获取三元组并过滤无效数据
         try:
             cypher_query = """
@@ -386,7 +389,7 @@ class Neo4jKGRAGService:
 
         if not self.kg_index:
             try:
-                self.kg_index = load_index_from_storage(self.storage_context,index_id="neo4j_kg_index")
+                self.kg_index = load_index_from_storage(self.storage_context,index_id=self.KG_INDEX_ID,index_cls=KnowledgeGraphIndex)
                 logger.info("✅ 从KG专属存储上下文重新加载KG索引成功")
             except Exception as e:
                 logger.error(f"❌ 加载KG索引失败: {str(e)}")
@@ -459,12 +462,13 @@ class Neo4jKGRAGService:
         """删除KG专属存储中指定文档及关联Neo4j三元组"""
         if not self.kg_index_exists:
             raise RuntimeError("知识图谱索引未构建")
-
+ 
         if not self.kg_index:
             raise RuntimeError("KG索引未加载，无法删除文档")
         try:
             # 从KG索引中删除文档（同步删除KG专属存储数据）
             self.kg_index.delete_ref_doc(doc_id, delete_from_docstore=True)
+            self.kg_index.persist()
             # 同步删除Neo4j中关联的三元组
             delete_related_query = "MATCH (n) WHERE n.doc_id = $doc_id DETACH DELETE n"
             self.graph_store.query(delete_related_query, {"doc_id": doc_id})

@@ -32,11 +32,17 @@ from backend_app.api.llm_api.chunks.chunks_service import Chunk
 from backend_app.api.llm_api.ingest.ingest_service_kg_rag import Neo4jKGRAGService 
 
 from llama_index.core.storage.index_store import SimpleIndexStore
+from datetime import datetime
+#redis
+from backend_app.api.tools.redis_service import RedisService
+import hashlib
+import json
 
 import logging
 
 logger = logging.getLogger(__name__)
-
+HYBRID_RAG_CACHE_EXPIRE_SECONDS = 3600  # 1小时过期
+CACHE_KEY_PREFIX = "hybrid_rag:cache:" 
 @dataclass
 class ChatEngineInput:
     system_message: ChatMessage | None = None
@@ -82,6 +88,7 @@ class ChatService:
     def __init__(
         self,
         llm_component: LLMComponent,
+        redis_service: RedisService,
         vector_store_component: VectorStoreComponent,
         embedding_component: EmbeddingComponent,
         node_store_component: NodeStoreComponent,
@@ -89,6 +96,7 @@ class ChatService:
     ) -> None:
         self.settings = settings()
         self.llm_component = llm_component
+        self.redis_service = redis_service
         self.embedding_component = embedding_component
         self.neo4j_kg_rag_service = neo4j_kg_rag_service  # 保存KG-RAG服务实例
         self.vector_store_component = vector_store_component
@@ -270,14 +278,42 @@ class ChatService:
         混合查询：向量RAG（提供上下文细节） + KG-RAG（提供关系推理）
         :return: 融合后的回答、向量RAG来源节点
         """
+        # ========== 第一步：生成唯一缓存键 ==========
+        # 缓存键包含：查询文本 + 关键kwargs参数（保证缓存唯一性）
+        cache_params = {
+            "query_text": query_text,
+            # 提取kwargs中影响查询结果的关键参数（如过滤条件、top_k等）
+            "kwargs": {k: v for k, v in kwargs.items() if k in ["top_k", "context_filter", "entity_filter"]}
+        }
+        # 将参数转为JSON字符串，再通过MD5生成唯一key（避免键过长）
+        cache_key_str = json.dumps(cache_params, ensure_ascii=False, sort_keys=True)
+        cache_key_hash = hashlib.md5(cache_key_str.encode("utf-8")).hexdigest()
+        cache_key = f"{CACHE_KEY_PREFIX}{cache_key_hash}"
+
+        # ========== 第二步：尝试从Redis读取缓存 ==========
+        cached_result = self.redis_service.get(cache_key)
+        if cached_result:
+            logger.info(f"混合RAG缓存命中，缓存键：{cache_key}，问题：{query_text}")
+            # 反序列化缓存结果
+            fusion_response = cached_result.get("fusion_response", "")
+            # 将缓存的字典列表转为Chunk对象
+            vector_sources = [
+                Chunk(**chunk_dict) for chunk_dict in cached_result.get("vector_sources", [])
+            ]
+            return fusion_response, vector_sources
+
+        # ========== 第三步：缓存未命中，执行原混合RAG逻辑 ==========
+        logger.info(f"混合RAG缓存未命中，执行实际查询，问题：{query_text}")
+        
         # 1. 执行向量RAG查询（流式响应转为完整文本）
         vector_stream_response = chat_engine.stream_chat(message=query_text, chat_history=chat_history)
         vector_response = "".join([token for token in vector_stream_response.response_gen])
         vector_sources = [Chunk.from_node(node) for node in vector_stream_response.source_nodes]
 
         # 2. 执行KG-RAG查询
-        kg_response = self._query_kg_rag(query_text, **kwargs)
-        logger.info(f"混合RAG查询完成，问题：{query_text}，向量RAG回答长度：{vector_response}，KG-RAG回答长度：{kg_response}")
+        kg_response = self._query_kg_rag(query_text,** kwargs)
+        logger.info(f"混合RAG查询完成，问题：{query_text}，向量RAG回答长度：{len(vector_response)}，KG-RAG回答长度：{len(kg_response)}")
+        
         # 3. 融合两者结果（通过LLM总结融合，保证回答一致性和完整性）
         fusion_prompt = f"""
         请你将以下两个回答融合为一个精准、简洁的最终回答，严格遵循以下要求：
@@ -297,6 +333,28 @@ class ChatService:
 
         # 调用LLM进行结果融合
         fusion_response = self.llm_component.llm.complete(fusion_prompt)
+        fusion_response_str = str(fusion_response)
 
-        return str(fusion_response), vector_sources
+        # ========== 第四步：将结果写入Redis缓存 ==========
+        # 转换Chunk对象为字典（便于序列化存储）
+        vector_sources_dict = [chunk.model_dump() for chunk in vector_sources]
+        cache_value = {
+            "fusion_response": fusion_response_str,
+            "vector_sources": vector_sources_dict,
+            "query_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 记录缓存写入时间（便于排查）
+            "query_text": query_text[:100]  # 存储简短查询文本（便于缓存管理）
+        }
+        
+        # 写入缓存（设置过期时间）
+        cache_set_success = self.redis_service.set(
+            key=cache_key,
+            value=cache_value,
+            ex=HYBRID_RAG_CACHE_EXPIRE_SECONDS
+        )
+        if cache_set_success:
+            logger.info(f"混合RAG缓存写入成功，缓存键：{cache_key}，过期时间：{HYBRID_RAG_CACHE_EXPIRE_SECONDS}秒")
+        else:
+            logger.warning(f"混合RAG缓存写入失败，缓存键：{cache_key}")
+
+        return fusion_response_str, vector_sources
 

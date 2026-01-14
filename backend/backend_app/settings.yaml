@@ -16,8 +16,8 @@ ollama:
   #api_base: ${OLLAMA_API_BASE:http://ollama-server:11434}  # 显式指定容器名更稳妥
   #embedding_api_base: ${OLLAMA_EMBEDDING_API_BASE:http://ollama-server:11434}
   #本地
-  api_base: ${OLLAMA_API_BASE:http://localhost:11434/}
-  embedding_api_base: ${OLLAMA_EMBEDDING_API_BASE:http://localhost:11434/}
+  api_base: ${OLLAMA_API_BASE:http://127.0.0.1:11434/}
+  embedding_api_base: ${OLLAMA_EMBEDDING_API_BASE:http://127.0.0.1:11434/}
   tfs_z: ${OLLAMA_TFS_Z:1.0}
   top_k: ${OLLAMA_TOP_K:40}
   top_p: ${OLLAMA_TOP_P:0.9}
