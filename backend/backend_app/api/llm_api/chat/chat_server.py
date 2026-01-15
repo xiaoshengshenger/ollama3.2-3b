@@ -312,7 +312,7 @@ class ChatService:
 
         # 2. 执行KG-RAG查询
         kg_response = self._query_kg_rag(query_text,** kwargs)
-        logger.info(f"混合RAG查询完成，问题：{query_text}，向量RAG回答长度：{len(vector_response)}，KG-RAG回答长度：{len(kg_response)}")
+        logger.info(f"混合RAG查询完成，向量RAG回答：{vector_response}，KG-RAG回答：{kg_response}")
         
         # 3. 融合两者结果（通过LLM总结融合，保证回答一致性和完整性）
         fusion_prompt = f"""
@@ -327,7 +327,7 @@ class ChatService:
         4.  回答格式要求：分点列出（使用数字序号），每点仅陈述一个明确事实，不添加额外修饰词
         5.  无需补充额外背景信息，无需总结，无需过渡句，只输出用户问题对应的核心答案
         6.  去除重复内容，保证回答简洁明了，语言精炼，无废话
-
+        
         用户当前问题是：{query_text}，请严格按上述规则生成回答。
         """
 

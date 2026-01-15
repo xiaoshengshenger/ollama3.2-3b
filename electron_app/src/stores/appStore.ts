@@ -40,6 +40,7 @@ interface AppState {
   chatList: ChatItem[];
   historyList: HistoryItem[];
   KnowledgeBaseItem: KnowledgeBaseItem[];
+  kg_knowledgeBaseItem: KnowledgeBaseItem[];
 }
 
 export const useAppStore = defineStore('app', {
@@ -89,7 +90,8 @@ export const useAppStore = defineStore('app', {
         ]
       }
     ],
-    KnowledgeBaseItem: []
+    KnowledgeBaseItem: [],
+    kg_knowledgeBaseItem: []
   }),
   getters: {
     // 获取当前选中的历史记录
@@ -110,6 +112,9 @@ export const useAppStore = defineStore('app', {
     },
     updateKnowledgeBaseItem(items: KnowledgeBaseItem[]) {
       this.KnowledgeBaseItem = items;
+    },
+    updatekgKnowledgeBaseItem(items: KnowledgeBaseItem[]) {
+      this.kg_knowledgeBaseItem = items;
     },
     updateCode(newCode: string) {
       this.code = newCode;

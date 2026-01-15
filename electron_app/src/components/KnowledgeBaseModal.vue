@@ -22,8 +22,8 @@
           </div>
           <!-- 动态列表项 -->
           <div
-            v-for="item in KnowledgeBaseItem"
-            :key="item.doc_id"
+            v-for="(item, index) in KnowledgeBaseItem"
+            :key="index"
             class="px-4 py-3 flex items-center justify-between"
           >
             <div class="flex items-center gap-3">
@@ -34,7 +34,7 @@
               <button class="text-blue-500 hover:text-blue-700 text-sm" @click="handleEdit(item)">
                 编辑
               </button>
-              <button class="text-red-500 hover:text-red-700 text-sm" @click="handleDelete(item.doc_id)">
+              <button class="text-red-500 hover:text-red-700 text-sm" @click="handleDelete(item.doc_id, index)">
                 删除
               </button>
             </div>
@@ -106,7 +106,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const loading = ref(false); // 列表加载状态
 const uploading = ref(false); // 上传加载状态
 let knowledgeBaseList = reactive<KnowledgeBaseItem[]>([]); // 知识库文件列表
-
+let kg_knowledgeBaseList = reactive<KnowledgeBaseItem[]>([]);
 // 监听弹窗显隐：打开时加载文件列表
 watch(
   () => props.modelValue,
@@ -129,12 +129,16 @@ const fetchFileList = async () => {
 
     // 清空原有数据
     knowledgeBaseList.length = 0;
+    kg_knowledgeBaseList.length = 0;
 
     // 添加所有已上传的文件
     if (result.data && Array.isArray(result.data)) {
       knowledgeBaseList = result.data;
-      console.log("知识库列表：", result);
+      kg_knowledgeBaseList = result.data_kg;
+      console.log("知识库rag列表：", result.data);
+      console.log("知识库kg_rag列表：", result.data_kg);
       appStore.updateKnowledgeBaseItem([...knowledgeBaseList]);
+      appStore.updateKnowledgeBaseItem([...kg_knowledgeBaseList]);
     }
 
   } catch (error) {
@@ -212,13 +216,14 @@ const handleEdit = (item: KnowledgeBaseItem) => {
 };
 
 // 5. 处理删除（对接后端删除接口）
-const handleDelete = async (docId: string) => {
+const handleDelete = async (docId: string, index: number) => {
   if (!confirm('确定要删除该文件吗？')) {
     return;
   }
 
   try {
-    const response = await fetch(`${apiUrl.value}ingest/${docId}`, {
+    const kg_docId = kg_knowledgeBaseList[index].doc_id;
+    const response = await fetch(`${apiUrl.value}ingest/${docId}/${kg_docId}`, {
       method: 'DELETE',
     });
 

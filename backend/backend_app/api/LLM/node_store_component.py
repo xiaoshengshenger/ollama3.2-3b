@@ -5,7 +5,8 @@ from llama_index.core.storage.index_store.types import BaseIndexStore
 
 from backend_app.constants import get_local_data_path,get_local_kg_data_path
 from backend_app.api.settings.settings import settings
-
+import logging
+logger = logging.getLogger(__name__)
 
 @singleton
 class NodeStoreComponent:
@@ -45,6 +46,7 @@ class NodeKgStoreComponent:
         database = settings().nodestore.database
         match database:
             case "simple":
+                logger.info(f"Using local KG data path: {get_local_kg_data_path()}")
                 try:
                     self.index_store = SimpleIndexStore.from_persist_dir(
                         persist_dir=str(get_local_kg_data_path())

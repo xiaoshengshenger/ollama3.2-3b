@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Literal
 from backend_app.api.settings.settings_load import load_active_settings
+from pathlib import Path
 
 class Neo4jSettings(BaseModel):
     """Neo4j 连接配置"""

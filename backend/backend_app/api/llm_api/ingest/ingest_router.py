@@ -51,8 +51,11 @@ def list_ingested(request: Request) -> IngestResponse:
     return IngestResponse(object="list", model="private-gpt", data=ingested_documents, data_kg=ingested_documents_kg_rag)
 
 
-@ingest_router.delete("/{doc_id}")
-def delete_ingested(request: Request, doc_id: str) -> None:
-    
+@ingest_router.delete("/{doc_id}/{kg_docId}")
+def delete_ingested(request: Request, doc_id: str, kg_docId: str) -> None:
+
     service = request.state.injector.get(IngestService)
     service.delete(doc_id) 
+
+    kg_service = request.state.injector.get(Neo4jKGRAGService)
+    kg_service.delete_kg_doc(kg_docId)
