@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, AnyStr, BinaryIO, List, Optional, Tuple
 from dataclasses import dataclass
-from backend_app.constants import get_local_kg_data_path
+from backend_app.constants import get_local_kg_data_path 
 
 # 项目内部依赖
 from injector import inject, singleton
@@ -46,12 +46,17 @@ class Neo4jConfig:
     max_triplets_per_chunk: int = int(os.getenv("NEO4J_MAX_TRIPLETS", 3))
     include_embeddings: bool = os.getenv("NEO4J_INCLUDE_EMBEDDINGS", "True") == "True"
 
+# ====================== 固定索引常量 ======================
+KG_RAG_INDEX_ID = "kg_rag_index"  # 定义固定索引ID
+
 # ====================== 知识图谱RAG服务（单例+依赖注入） ======================
 @singleton
 class Neo4jKGRAGService:
     """
     知识图谱RAG服务（适配项目现有RAG架构）
-    核心调整：复用向量RAG的向量数据库，为KG-RAG创建专属的docstore/index_store
+    核心调整：
+    1. 所有文档统一使用固定索引ID: kg_rag_index
+    2. 复用向量RAG的向量数据库，为KG-RAG创建专属的docstore/index_store
     """
     @inject
     def __init__(
@@ -150,14 +155,16 @@ class Neo4jKGRAGService:
         if local_status:
             logger.warning("⚠️ Neo4j状态丢失，但本地存在索引文件，标记为已构建")
             # 同步状态到Neo4j
-            self._save_kg_index_status_to_neo4j(True)
+            self._save_kg_index_status_to_neo4j(True, KG_RAG_INDEX_ID)
             return True
         
         logger.info("ℹ️ 本地和Neo4j均未检测到KG索引，标记为未构建")
         return False
     
     def _check_local_kg_index_files(self) -> bool:
-        """检查本地是否存在有效的KG索引文件"""
+        """
+        修复版：不再检查固定索引ID，仅检查是否有KG索引文件存在
+        """
         kg_path = get_local_kg_data_path()
         if not kg_path.exists():
             return False
@@ -166,7 +173,7 @@ class Neo4jKGRAGService:
         required_files = [
             kg_path / "index_store.json",
             kg_path / "docstore.json",
-            kg_path / "vector_store.json"  # 根据实际文件调整
+            kg_path / "vector_store.json"
         ]
         
         # 检查是否有至少一个关键文件存在且非空
@@ -200,7 +207,7 @@ class Neo4jKGRAGService:
             logger.warning(f"⚠️ 加载KG索引状态失败，默认索引未构建：{str(e)}")
             return False
     
-    def _save_kg_index_status_to_neo4j(self, exists: bool):
+    def _save_kg_index_status_to_neo4j(self, exists: bool, index_id: str = KG_RAG_INDEX_ID):
         """将KG索引状态持久化到Neo4j（修复Cypher语法错误）"""
         if not self.graph_store:
             logger.warning("⚠️ Neo4j未初始化，跳过KG索引状态保存")
@@ -217,7 +224,7 @@ class Neo4jKGRAGService:
                 
                 # 简化Cypher语句，移除多余缩进和换行
                 create_status_query = """
-CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: "KG索引状态标记节点，请勿手动删除", database: $database, version: "1.0"})
+CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: "KG索引状态标记节点，请勿手动删除", database: $database, version: "1.0", index_id: $index_id})
                 """.strip()  # 去除首尾空白
                 
                 self.graph_store.query(
@@ -226,11 +233,12 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
                         "exists": exists,
                         "update_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "database": self.neo4j_config.database,
+                        "index_id": index_id  # 存储固定索引ID
                     }
                 )
                 
                 self.kg_index_exists = exists
-                logger.info(f"✅ KG索引状态已持久化到Neo4j：{'已构建' if exists else '未构建'}")
+                logger.info(f"✅ KG索引状态已持久化到Neo4j：{'已构建' if exists else '未构建'} (索引ID: {KG_RAG_INDEX_ID})")
                 return
             except Exception as e:
                 retry_count += 1
@@ -251,38 +259,72 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
             with open(status_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     "exists": exists,
+                    "index_id": KG_RAG_INDEX_ID,  # 存储固定索引ID
                     "update_time": datetime.datetime.now().isoformat()
                 }, f, ensure_ascii=False, indent=2)
             
-            logger.info(f"✅ KG索引状态已保存到本地文件：{status_file}")
+            logger.info(f"✅ KG索引状态已保存到本地文件：{status_file} (索引ID: {KG_RAG_INDEX_ID})")
         except Exception as e:
             logger.error(f"❌ 本地保存KG索引状态也失败：{str(e)}")
     
-    def _load_kg_index_on_startup(self):
-        """应用启动时主动加载KG索引，避免首次查询时加载失败"""
-        if not self.kg_index_exists:
-            logger.info("ℹ️ KG索引未构建，跳过启动时加载")
-            return
-            
+    def _load_kg_index_on_startup(self) -> None:
+        """
+        修复版：启动时加载KG索引（自动识别UUID索引ID，不再依赖自定义kg_rag_index）
+        """
         try:
-            logger.info("🔄 启动时主动加载KG索引...")
-            self.kg_index = load_index_from_storage(
-                storage_context=self.storage_context,  # 使用已初始化的storage_context
-                index_cls=KnowledgeGraphIndex,
-            )
+            logger.info("🔄 启动时主动加载KG索引（自动识别UUID索引ID）...")
             
-            # 重新绑定核心组件
-            self.kg_index._llm = self.llm_component.llm
-            self.kg_index._embed_model = self.embedding_component.embedding_model
-            self.kg_index._graph_store = self.graph_store  # 显式绑定graph_store
-            self.kg_index._node_parser = self.node_parser
+            # ========== 核心修复1：先读取index_store.json，找到KG类型的索引UUID ==========
+            kg_path = get_local_kg_data_path()
+            index_store_file = kg_path / "index_store.json"
             
-            logger.info("✅ 启动时KG索引加载成功")
+            target_index_id = None
+            if index_store_file.exists():
+                import json
+                with open(index_store_file, 'r', encoding='utf-8') as f:
+                    index_store_data = json.load(f)
+                
+                # 遍历所有索引，找到KG类型的索引（__type__ == "kg"）
+                for idx_id, idx_data in index_store_data.get("index_store/data", {}).items():
+                    if idx_data.get("__type__") == "kg":
+                        target_index_id = idx_id
+                        logger.info(f"✅ 找到KG类型的索引UUID: {target_index_id}")
+                        break
+            
+            # ========== 核心修复2：根据找到的UUID加载索引 ==========
+            if target_index_id:
+                self.kg_index = load_index_from_storage(
+                    storage_context=self.storage_context,
+                    index_cls=KnowledgeGraphIndex,
+                    index_id=target_index_id  # 使用框架生成的UUID
+                )
+                # 恢复索引的依赖组件
+                self.kg_index._llm = self.llm_component.llm
+                self.kg_index._embed_model = self.embedding_component.embedding_model
+                self.kg_index._graph_store = self.graph_store
+                self.kg_index._node_parser = self.node_parser
+                logger.info(f"✅ 启动时成功加载KG索引（UUID: {target_index_id}）")
+            else:
+                logger.warning("⚠️ 未找到KG类型的索引，索引可能尚未构建")
+                self.kg_index = None
+            
+            # ========== 核心修复3：更新索引状态（基于实际是否加载成功） ==========
+            if self.kg_index is not None:
+                self.kg_index_exists = True
+                logger.info("✅ KG索引状态加载完成：已构建")
+                # 持久化状态到Neo4j（使用业务索引ID标识）
+                self._save_kg_index_status_to_neo4j(True, KG_RAG_INDEX_ID)
+            else:
+                self.kg_index_exists = False
+                logger.info("✅ KG索引状态加载完成：未构建")
+                self._save_kg_index_status_to_neo4j(False, KG_RAG_INDEX_ID)
+                
         except Exception as e:
             logger.error(f"❌ 启动时加载KG索引失败: {str(e)}", exc_info=True)
-            # 标记索引状态为未构建，避免后续查询报错
+            # 失败后仍标记索引状态为未构建，但保留docstore中的文档数据
+            self.kg_index = None
             self.kg_index_exists = False
-            self._save_kg_index_status_to_neo4j(False)
+            self._save_kg_index_status_to_neo4j(False, KG_RAG_INDEX_ID)                          
 
     # ====================== 清理Neo4j中的无效三元组（原有逻辑不变） ======================
     def _clean_invalid_triples_in_neo4j(self):
@@ -335,7 +377,7 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
         except Exception as e:
             logger.error(f"❌ 清理Neo4j无效三元组失败: {str(e)}", exc_info=True)
 
-    # ====================== 文档处理（原有逻辑不变） ======================
+    # ====================== 文档处理（核心修改：绑定固定索引ID） ======================
     def _ingest_data(self, file_name: str, file_data: AnyStr) -> list[IngestedDoc]:
         PROJECT_TMP_DIR = Path(__file__).parent.parent.parent.parent / "tmp"
         PROJECT_TMP_DIR.mkdir(exist_ok=True, mode=0o777)
@@ -402,6 +444,7 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
                     id_=doc.id_
                 )
                 processed_doc.metadata["original_file_name"] = file_name
+                processed_doc.metadata["index_id"] = KG_RAG_INDEX_ID  # 标记文档所属索引
                 processed_docs.append(processed_doc)
         logger.info(f"文档预处理完成，有效文档块数量：{len(processed_docs)}")
 
@@ -414,52 +457,79 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
         if not hasattr(self.storage_context, 'vector_stores') or 'default' not in self.storage_context.vector_stores:
             self.storage_context.vector_stores['default'] = self.vector_store_component.vector_store
         
-        # 4. 构建知识图谱索引（复用向量库，存储到KG专属存储）
-        self.kg_index = KnowledgeGraphIndex.from_documents(
-            documents=processed_docs,
-            storage_context=self.storage_context,
-            max_triplets_per_chunk=self.neo4j_config.max_triplets_per_chunk,
-            include_embeddings=self.neo4j_config.include_embeddings,
-            embed_model=self.embedding_component.embedding_model,
-            llm=self.llm_component.llm,
-            node_parser=self.node_parser,
-            # 三元组提取提示（原有逻辑不变）
-            kg_triple_extract_template="""
-            # 任务要求
-            从以下文本中仅提取**业务内容相关**的三元组（主体，关系，客体），严格遵守以下规则：
+        # 4. 构建知识图谱索引（复用向量库，存储到KG专属存储，指定固定索引ID）
+        if self.kg_index is None:
+            # 首次构建：创建新索引并指定固定ID
+            self.kg_index = KnowledgeGraphIndex.from_documents(
+                documents=processed_docs,
+                storage_context=self.storage_context,
+                max_triplets_per_chunk=self.neo4j_config.max_triplets_per_chunk,
+                include_embeddings=self.neo4j_config.include_embeddings,
+                embed_model=self.embedding_component.embedding_model,
+                llm=self.llm_component.llm,
+                node_parser=self.node_parser,
+                index_id=KG_RAG_INDEX_ID,  # 关键：指定固定索引ID
+                # 三元组提取提示（原有逻辑不变）
+                kg_triple_extract_template="""
+                # 任务要求
+                从以下文本中仅提取**业务内容相关**的三元组（主体，关系，客体），严格遵守以下规则：
 
-            # 过滤规则（必须遵守）
-            1. 完全忽略任何与文件系统相关的内容，包括但不限于：
-            - 文件路径（如：E:\、/home/user、C:/）
-            - 文件名（如：document.txt、image.png）
-            - 目录名（如：tmp、Backend_app、Ai）
-            - 盘符（如：C:、D:）
-            2. 只提取文本中描述实体、属性、关系的有效信息。
-            3. 主体和客体必须是有实际业务含义的名词/短语，关系必须是能体现两者关联的动词/介词短语。
+                # 过滤规则（必须遵守）
+                1. 完全忽略任何与文件系统相关的内容，包括但不限于：
+                - 文件路径（如：E:\、/home/user、C:/）
+                - 文件名（如：document.txt、image.png）
+                - 目录名（如：tmp、Backend_app、Ai）
+                - 盘符（如：C:、D:）
+                2. 只提取文本中描述实体、属性、关系的有效信息。
+                3. 主体和客体必须是有实际业务含义的名词/短语，关系必须是能体现两者关联的动词/介词短语。
 
-            # 好的示例
-            - ("Python", "是一种", "编程语言")
-            - ("牛顿", "提出了", "万有引力定律")
-            - ("《三体》", "的作者是", "刘慈欣")
+                # 好的示例
+                - ("Python", "是一种", "编程语言")
+                - ("牛顿", "提出了", "万有引力定律")
+                - ("《三体》", "的作者是", "刘慈欣")
 
-            # 坏的示例（请不要输出这样的内容）
-            - ("E:", "IS_LOCATED_IN", "Ai")
-            - ("Tmpfile.txt", "HAS_CONTENT", "data")
+                # 坏的示例（请不要输出这样的内容）
+                - ("E:", "IS_LOCATED_IN", "Ai")
+                - ("Tmpfile.txt", "HAS_CONTENT", "data")
 
-            # 输出格式（仅返回列表，无其他文字）
-            [("主体1", "关系1", "客体1"), ("主体2", "关系2", "客体2")]
+                # 输出格式（仅返回列表，无其他文字）
+                [("主体1", "关系1", "客体1"), ("主体2", "关系2", "客体2")]
 
-            # 需要提取的文本
-            {text}
-            """ 
-        )
+                # 需要提取的文本
+                {text}
+                """ 
+            )
+
+            try:
+                # 方案1：直接调用index_store的set_index_metadata（无需导入类）
+                # 不管底层实现是什么，直接调用方法即可
+                self.storage_context.index_store.set_index_metadata(
+                    KG_RAG_INDEX_ID,
+                    {
+                        "type": "knowledge_graph", 
+                        "version": "1.0",
+                        "created_at": datetime.datetime.now().isoformat()
+                    }
+                )
+                logger.info(f"已将索引ID {KG_RAG_INDEX_ID} 写入index_store")
+            except Exception as e:
+                logger.warning(f"写入索引元数据失败（不影响核心功能）: {str(e)}") 
+        else:
+            # 增量添加：向已有索引中添加文档
+            logger.info(f"📄 向已有KG索引（{KG_RAG_INDEX_ID}）增量添加文档")
+            self.kg_index.insert_nodes(
+                nodes=self.node_parser.get_nodes_from_documents(processed_docs),
+                max_triplets_per_chunk=self.neo4j_config.max_triplets_per_chunk,
+                include_embeddings=self.neo4j_config.include_embeddings
+            )
+        
         self.storage_context.persist(persist_dir=get_local_kg_data_path())
         # 启用无效三元组清理（原有注释取消）
         #self._clean_invalid_triples_in_neo4j()
         
         # 强制更新索引状态
         self.kg_index_exists = True
-        self._save_kg_index_status_to_neo4j(True)
+        self._save_kg_index_status_to_neo4j(True, KG_RAG_INDEX_ID)
         
         # 5. 从Neo4j中获取三元组并过滤无效数据
         try:
@@ -477,7 +547,7 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
                 if not any(keyword in str(triple) for keyword in invalid_keywords):
                     valid_triples.append(triple)
             
-            logger.info(f"✅ 知识图谱索引构建完成：")
+            logger.info(f"✅ 知识图谱索引构建完成（索引ID: {KG_RAG_INDEX_ID}）：")
             logger.info(f"   - 原始三元组数量：{len(all_triples)}")
             logger.info(f"   - 有效三元组数量：{len(valid_triples)}")
             logger.info(f"   - 有效三元组内容：{valid_triples if valid_triples else '无有效三元组'}")
@@ -512,17 +582,16 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
             # 重新检查本地文件
             if self._check_local_kg_index_files():
                 self.kg_index_exists = True
-                self._save_kg_index_status_to_neo4j(True)
+                self._save_kg_index_status_to_neo4j(True, KG_RAG_INDEX_ID)
             else:
-                raise RuntimeError("知识图谱索引未构建，请先上传文档")
-
+                raise RuntimeError(f"知识图谱索引（业务ID: {KG_RAG_INDEX_ID}）未构建，请先上传文档")
         # 双重检查并重新加载索引
         if not self.kg_index:
-            logger.warning("⚠️ kg_index为空，尝试重新加载...")
+            logger.warning(f"⚠️ kg_index为空，尝试重新加载固定索引 {KG_RAG_INDEX_ID}...")
             self._load_kg_index_on_startup()  # 复用启动加载逻辑
             if not self.kg_index:
-                raise RuntimeError("知识图谱索引加载失败，请重新上传文档")
-
+                raise RuntimeError(f"知识图谱索引加载失败，请重新上传文档")
+ 
         # 默认配置（可通过kwargs覆盖）
         query_config = {
             "include_text": kwargs.get("include_text", True),
@@ -542,7 +611,7 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
             response = query_engine.query(query_text)
             return str(response)
         except Exception as e:
-            logger.error(f"KG RAG查询失败: {str(e)}", exc_info=True)
+            logger.error(f"KG RAG查询失败(索引ID: {KG_RAG_INDEX_ID}): {str(e)}", exc_info=True)
             raise
 
     # ====================== 辅助方法（适配KG专属存储） ======================
@@ -559,81 +628,136 @@ CREATE (n:KGIndexStatus {exists: $exists, update_time: $update_time, node_desc: 
         self.kg_index = None
         # 同步状态到Neo4j
         self.kg_index_exists = False
-        self._save_kg_index_status_to_neo4j(False)
-        logger.warning("⚠️ Neo4j所有数据及KG专属存储数据已清空")
+        self._save_kg_index_status_to_neo4j(False, KG_RAG_INDEX_ID)
+        logger.warning(f"⚠️ Neo4j所有数据及KG专属存储数据已清空（索引ID: {KG_RAG_INDEX_ID}）")
 
     def list_ingested_kg_docs(self) -> list[IngestedDoc]:
-        """查询KG专属存储中已入库的文档（原有逻辑适配新存储）"""
-        ingested_docs: list[IngestedDoc] = []
+        """
+        优化版：直接读取docstore.json获取文档列表（不依赖kg_index）
+        """
         try:
-            # 从KG专属文档存储中获取全量参考文档
-            ref_docs: dict[str, RefDocInfo] | None = self.node_kg_store_component.doc_store.get_all_ref_doc_info()
-            if not ref_docs:
-                return ingested_docs
-
-            for doc_id, ref_doc_info in ref_docs.items():
-                doc_metadata = None
-                if ref_doc_info and ref_doc_info.metadata:
-                    doc_metadata = IngestedDoc.curate_metadata(ref_doc_info.metadata)
-                ingested_docs.append(
-                    IngestedDoc(
-                        object="ingest.kg_document",
-                        doc_id=doc_id,
-                        doc_metadata=doc_metadata, 
+            kg_path = get_local_kg_data_path()
+            docstore_file = kg_path / "docstore.json"
+            
+            if not docstore_file.exists():
+                logger.info("docstore.json不存在，返回空文档列表")
+                return []
+            
+            import json
+            with open(docstore_file, 'r', encoding='utf-8') as f:
+                docstore_data = json.load(f)
+            
+            ingested_docs = []
+            
+            # 遍历ref_doc_info，筛选index_id=kg_rag_index的文档
+            for doc_id, doc_info in docstore_data.get('docstore/ref_doc_info', {}).items():
+                metadata = doc_info.get('metadata', {})
+                # 只返回归属kg_rag_index的文档
+                if metadata.get('index_id') == KG_RAG_INDEX_ID:
+                    ingested_docs.append(
+                        IngestedDoc(
+                            object="ingest.kg_document",
+                            doc_id=doc_id,
+                            doc_metadata=metadata
+                        )
                     )
-                )
-            logger.debug(f"从KG专属存储查询到 {len(ingested_docs)} 个入库文档")
+            
+            logger.info(f"✅ 从docstore.json读取到KG文档列表: {len(ingested_docs)} 个")
+            return ingested_docs
+            
         except Exception as e:
-            logger.warning("获取KG入库文档列表失败", exc_info=True)
-        return ingested_docs
+            logger.error(f"获取KG文档列表失败: {str(e)}", exc_info=True)
+            return []
 
     def delete_kg_doc(self, doc_id: str) -> None:
         """
-        删除指定ID的KG文档（兼容llama-index KG索引不支持删除的限制）
-        核心逻辑：
-        1. 安全删除docstore和ref_doc_info中的文档数据
-        2. 持久化修改到本地存储
-        3. 提示Neo4j三元组无法删除的限制
+        真正删除指定ID的KG文档（修改持久化文件+清理关联数据）
         """
         try:
-            logger.info(f"开始删除KG文档: {doc_id} (KG索引删除功能暂不支持，仅清理文档存储)")
+            logger.info(f"开始删除KG文档(索引ID: {KG_RAG_INDEX_ID}): {doc_id}")
             
             # 安全检查：确保kg_index已初始化
             if self.kg_index is None:
-                logger.warning(f"KG索引未初始化，跳过文档 {doc_id} 删除")
-                return
+                logger.warning(f"KG索引未初始化，尝试加载固定索引 {KG_RAG_INDEX_ID} 后再删除")
+                self._load_kg_index_on_startup()
+                if not self.kg_index:
+                    raise RuntimeError("KG索引加载失败，无法删除文档")
             
-            # 1. 删除docstore中的主文档（核心逻辑，你的代码这部分是对的）
-            doc_deleted = False
-            if hasattr(self.kg_index, 'docstore') and self.kg_index.docstore:
-                if doc_id in self.kg_index.docstore.docs:
-                    del self.kg_index.docstore.docs[doc_id]
-                    doc_deleted = True
-                    logger.info(f"已从docstore删除文档: {doc_id}")
-                else:
-                    logger.warning(f"docstore中未找到文档: {doc_id}")
+            # ========== 关键修复1：先找到原始文档关联的所有节点ID ==========
+            node_ids_to_delete = []
+            # 1. 从 ref_doc_info 中获取该文档关联的节点ID
+            if doc_id in self.kg_index.ref_doc_info:
+                node_ids_to_delete = self.kg_index.ref_doc_info[doc_id].node_ids
+                # 删除 ref_doc_info 中的记录
+                del self.kg_index.ref_doc_info[doc_id]
+                logger.info(f"已删除 ref_doc_info 中文档 {doc_id} 的记录")
             
-            # 2. 删除ref_doc_info中的关联信息（核心逻辑，你的代码这部分是对的）
-            ref_deleted = False
-            if hasattr(self.kg_index, 'ref_doc_info') and self.kg_index.ref_doc_info:
-                if doc_id in self.kg_index.ref_doc_info:
-                    del self.kg_index.ref_doc_info[doc_id]
-                    ref_deleted = True
-                    logger.info(f"已从ref_doc_info删除文档关联信息: {doc_id}")
-                else:
-                    logger.warning(f"ref_doc_info中未找到文档: {doc_id}")
+            # ========== 关键修复2：删除 docstore 中的节点数据（内存中） ==========
+            for node_id in node_ids_to_delete:
+                if node_id in self.kg_index.docstore.docs:
+                    del self.kg_index.docstore.docs[node_id]
+                    logger.info(f"已删除 docstore 中节点 {node_id} 的记录")
             
-            # 3. 关键补充：持久化修改到本地存储（你的代码缺失这一步）
-            if doc_deleted or ref_deleted:
-                self.storage_context.persist(persist_dir=get_local_kg_data_path())
-                logger.info(f"已将文档 {doc_id} 的删除操作持久化到本地存储")
-            else:
-                logger.warning(f"文档 {doc_id} 无有效数据可删除")
+            # ========== 关键修复3：删除 metadata 中的关联记录 ==========
+            # 遍历并删除该文档/节点的 metadata 记录
+            metadata_keys_to_delete = []
+            if hasattr(self.kg_index.docstore, '_metadata'):
+                for key in self.kg_index.docstore._metadata.keys():
+                    # 删除原始文档的 metadata
+                    if key == doc_id:
+                        metadata_keys_to_delete.append(key)
+                    # 删除节点的 metadata
+                    elif key in node_ids_to_delete:
+                        metadata_keys_to_delete.append(key)
+                
+                for key in metadata_keys_to_delete:
+                    del self.kg_index.docstore._metadata[key]
+                    logger.info(f"已删除 metadata 中 {key} 的记录")
             
-            # 4. 重要提示：Neo4j中的三元组无法删除（llama-index限制）
-            logger.warning(f"注意：文档 {doc_id} 对应的Neo4j三元组未删除（llama-index KG索引暂不支持删除）")
-            logger.warning(f"如需完全清理，请调用 clear_neo4j_data() 清空所有KG数据后重新导入")
+            # ========== 关键修复4：强制重新持久化 storage_context ==========
+            # 清空原有持久化文件（关键！否则旧数据会残留）
+            kg_path = get_local_kg_data_path()
+            docstore_file = kg_path / "docstore.json"
+            if docstore_file.exists():
+                docstore_file.unlink()  # 删除原有文件
+                logger.info(f"已删除原有 docstore.json 文件")
             
+            # 重新持久化（生成新的 docstore.json）
+            self.storage_context.persist(persist_dir=kg_path)
+            logger.info(f"已重新持久化 storage_context，docstore.json 已更新")
+            
+            # ========== 补充：尝试删除 Neo4j 中关联的三元组（基于文本内容匹配） ==========
+            # 注意：这是近似删除，因为三元组和文档没有强绑定
+            try:
+                # 从 docstore 中获取原始文档文本（如果还能拿到）
+                if hasattr(self.kg_index.docstore, 'get_document'):
+                    try:
+                        doc = self.kg_index.docstore.get_document(doc_id)
+                        if doc and doc.text:
+                            # 简单匹配：删除包含文档特征文本的节点
+                            # 注意：这是近似匹配，可能误删，生产环境需更精准的策略
+                            clean_text = self._clean_document_text(doc.text)
+                            # 提取文档中的核心实体
+                            entities = re.findall(r'[\u4e00-\u9fa5]{2,}|[A-Za-z0-9_]{3,}', clean_text)[:5]  # 取前5个核心实体
+                            if entities:
+                                entities_str = ", ".join([f"'{e}'" for e in entities])
+                                delete_cypher = f"""
+                                MATCH (n) 
+                                WHERE ANY(prop IN keys(n) WHERE 
+                                    toString(n[prop]) IN [{entities_str}]
+                                )
+                                DETACH DELETE n
+                                """
+                                self.graph_store.query(delete_cypher)
+                                logger.info(f"已删除 Neo4j 中与文档 {doc_id} 关联的三元组（基于实体匹配）")
+                    except:
+                        logger.warning(f"无法获取文档 {doc_id} 的文本，跳过 Neo4j 三元组删除")
+            except Exception as e:
+                logger.warning(f"删除 Neo4j 三元组失败: {str(e)}")
+            
+            logger.info(f"文档 {doc_id} 删除完成！")
+            logger.warning(f"注意：KG索引删除为近似删除，如需完全清理，建议调用 clear_neo4j_data() 后重新导入")
+                
         except Exception as e:
-            logger.error(f"删除KG文档 {doc_id} 失败: {str(e)}", exc_info=True)
-            raise RuntimeError(f"删除KG文档失败: {str(e)}") 
+            logger.error(f"删除KG文档 {doc_id} 失败(索引ID: {KG_RAG_INDEX_ID}): {str(e)}", exc_info=True)
+            raise RuntimeError(f"删除KG文档失败: {str(e)}")

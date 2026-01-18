@@ -138,7 +138,7 @@ const fetchFileList = async () => {
       console.log("知识库rag列表：", result.data);
       console.log("知识库kg_rag列表：", result.data_kg);
       appStore.updateKnowledgeBaseItem([...knowledgeBaseList]);
-      appStore.updateKnowledgeBaseItem([...kg_knowledgeBaseList]);
+      appStore.updatekgKnowledgeBaseItem([...kg_knowledgeBaseList]);
     }
 
   } catch (error) {
@@ -180,7 +180,7 @@ const handleFileSelect = async (e: Event) => {
       // 发送上传请求
       const response = await fetch(`${apiUrl.value}ingest/file`, {
         method: 'POST',
-        body: formData,
+        body: formData, 
       });
 
       if (!response.ok) throw new Error(`文件 ${file.name} 上传失败`);
